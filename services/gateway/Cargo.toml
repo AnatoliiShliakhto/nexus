@@ -1,0 +1,31 @@
+[package]
+name = "nx-gateway"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+nx-error = { workspace = true, features = ["json"] }
+nx-config.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+tracing.workspace = true
+axum = { workspace = true }
+serde.workspace = true
+
+[lib]
+name = "nx_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nx-gateway"
+path = "src/main.rs"
+
+[lints]
+workspace = true

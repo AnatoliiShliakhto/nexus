@@ -1,0 +1,32 @@
+[package]
+name = "nx-config"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Config library"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = []
+categories = []
+publish.workspace = true
+
+[dependencies]
+config.workspace = true
+serde.workspace = true
+nx-error = { workspace = true, features = ["json"] }
+secrecy.workspace = true
+heck.workspace = true
+dotenvy.workspace = true
+tracing.workspace = true
+dashmap.workspace = true
+fxhash.workspace = true
+vaultrs.workspace = true
+
+[lib]
+name = "nx_config"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

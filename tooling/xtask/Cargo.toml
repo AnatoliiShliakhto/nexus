@@ -1,0 +1,36 @@
+[package]
+name = "xtask"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+description.workspace = true
+keywords.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+cargo-generate.workspace = true
+cargo_metadata.workspace = true
+chrono.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+heck.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+fxhash.workspace = true
+hex.workspace = true
+sha2.workspace = true
+toml_edit.workspace = true
+tracing.workspace = true
+nx-logger.workspace = true
+nx-error = { workspace = true, features = ["json"] }
+getrandom = { workspace = true, features = ["sys_rng"] }
+ed25519-dalek = { workspace = true, features = ["pkcs8", "alloc", "pem"] }
+fluent.workspace = true
+unic-langid.workspace = true
+
+[lints]
+workspace = true

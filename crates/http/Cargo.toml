@@ -1,0 +1,38 @@
+[package]
+name = "nx-http"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A HTTP toolkit for WASI and Spin with integrated W3C tracing, telemetry, and structured error handling"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "tracing", "observability", "w3c", "spin"]
+categories = ["development-tools::debugging", "wasm", "os::wasm", "network-programming"]
+publish.workspace = true
+
+[features]
+default = ["spin"]
+spin = ["dep:spin-sdk", "spin-sdk/http", "spin-sdk/json", "spin-sdk/variables", "spin-sdk/redis"]
+wasi = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+http.workspace = true
+bytes.workspace = true
+spin-sdk = { workspace = true, optional = true }
+tracing.workspace = true
+getrandom.workspace = true
+url.workspace = true
+nx-logger.workspace = true
+nx-http-macros.workspace = true
+nx-error = { workspace = true, features = ["json"] }
+
+[lib]
+name = "nx_http"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

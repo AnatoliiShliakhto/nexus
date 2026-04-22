@@ -1,0 +1,51 @@
+[alias]
+x = "run --package xtask --bin xtask --"
+ops = "run --package ops --bin ops --"
+swagger = "run --package swagger --release --bin swagger --"
+setup = "run --package xtask --bin xtask -- setup"
+compose = "run --package xtask --bin xtask -- docker"
+codegen = "run --package xtask --bin xtask -- codegen"
+format = "fmt --all"
+lint = "run --package xtask --bin xtask -- lint"
+dev = "run --package xtask --bin xtask -- build"
+dist = "run --package xtask --bin xtask -- build --release"
+serve = "run --package xtask --bin xtask -- serve"
+
+[build]
+target-dir = "target"
+rustflags = ["--remap-path-prefix", ".=src"]
+#rustc-wrapper = "sccache"
+#incremental = false
+#rustflags = ["--cfg", "tokio_unstable"]
+
+[target.x86_64-pc-windows-msvc]
+#linker = "rust-lld"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[target.wasm32-wasip2]
+runner = "wasmtime run --"
+
+[target.wasm32-wasip3]
+runner = "wasmtime run --"
+
+[registries.crates-io]
+protocol = "sparse"
+
+[env]
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
+#CARGO_INCREMENTAL = "0"
+#SCCACHE_CACHE_SIZE = "20G"
+
+# --- Local Development & Debugging Defaults ---
+# These values are used as a fallback if environment variables
+# are not explicitly set in the shell or via Spin configuration.
+WORKSPACE_NAME = { value = "nexus", force = false }
+DATABASE_URL = { value = "http://localhost:8000", force = false }
+DATABASE_NAMESPACE = { value = "nexus", force = false }
+DATABASE_NAME = { value = "core", force = false }
+DATABASE_USER = { value = "root", force = false }
+DATABASE_PASS = { value = "root", force = false }

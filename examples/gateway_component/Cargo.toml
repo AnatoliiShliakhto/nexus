@@ -1,0 +1,33 @@
+[package]
+name = "nx-gateway-component"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "API Gateway and Request Router built for the Nexus using WebAssembly and Fermyon Spin."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["gateway", "wasm", "wasi", "proxy", "http"]
+categories = ["wasm", "network-programming", "web-programming::http-server"]
+publish.workspace = true
+
+[package.metadata.service]
+access = "inner"
+
+[package.metadata.service.spin]
+allowed_outbound_hosts = ["{{ redis_url }}", "http://self", "http://*.spin.internal"]
+
+[package.metadata.service.spin.variables]
+redis_url = "{{ redis_url }}"
+
+[dependencies]
+nx-http = { workspace = true, features = ["spin"] }
+
+[lib]
+crate-type = ["cdylib"]
+name = "nx_gateway_component"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

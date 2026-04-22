@@ -1,0 +1,223 @@
+services:
+  # --- Reverse Proxy ---
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    user: root
+    ports: ["8080:8080"]
+    volumes: ["./nginx.conf:/etc/nginx/nginx.conf:ro"]
+    networks: [nx-net]
+    depends_on:
+      surrealdb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    restart: unless-stopped
+
+  # --- Data Layer ---
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: surrealdb
+    user: root
+    ports: ["8000:8000"]
+    command: ["start", "--user", "root", "--pass", "root", "rocksdb:///data"]
+    volumes: ["surrealdb_data:/data", "surrealdb_logs:/logs"]
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks: [nx-net]
+    restart: unless-stopped
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    user: root
+    ports: ["8200:8200"]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "dev-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://127.0.0.1:8200"
+    volumes: ["vault_data:/vault/file", "vault_logs:/vault/logs"]
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - nx-net
+    restart: unless-stopped
+    entrypoint: >
+      sh -c "
+        docker-entrypoint.sh server -dev &
+        sleep 2;
+        vault secrets enable -path=secrets kv-v2 || true;
+        wait"
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    user: root
+    ports: ["6379:6379"]
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [nx-net]
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    user: root
+    ports: ["9000:9000"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+      MINIO_BROWSER_REDIRECT_URL: http://localhost/minio/
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes: ["minio_data:/data"]
+    networks: [nx-net]
+    restart: unless-stopped
+
+  # --- Message Broker ---
+#  redpanda:
+#    image: docker.redpanda.com/redpandadata/redpanda:latest
+#    container_name: redpanda
+#    user: root
+#    command:
+#      - redpanda start
+#      - --smp 1
+#      - --overprovisioned
+#      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+#      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+#    ports:
+#      - "19092:19092"
+#      - "9644:9644" # Admin API
+#    volumes:
+#      - "redpanda_data:/var/lib/redpanda/data"
+#    networks: [nx-net]
+#    healthcheck:
+#      test: ["CMD", "rpk", "cluster", "health"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    restart: unless-stopped
+
+  # --- Wasm Event Trigger (Redpanda Connect) ---
+#  event-bridge:
+#    image: redpandadata/connect:latest
+#    container_name: event_bridge
+#    user: root
+#    volumes: ["./redpanda-connect.yaml:/connect.yaml:ro"]
+#    command: -c /connect.yaml
+#    depends_on:
+#      redpanda: { condition: service_healthy }
+#    networks: [nx-net]
+#    extra_hosts: ["host.docker.internal:host-gateway"]
+#    restart: unless-stopped
+
+  # --- Observability Stack ---
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    user: root
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes: ["./loki.yaml:/etc/loki/loki.yaml:ro", "loki_data:/tmp/loki"]
+    networks: [nx-net]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    user: root
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
+    volumes: ["./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro", "prometheus_data:/prometheus"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [nx-net]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    container_name: jaeger
+    user: root
+    environment:
+      JAEGER_CONFIG_FILE: /etc/jaeger/jaeger-config.yaml
+    volumes:
+      - ./jaeger.yaml:/etc/jaeger/jaeger-config.yaml:ro
+      - jaeger_data:/badger/data
+      - jaeger_tmp:/tmp
+    networks: [nx-net]
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    user: root
+    volumes: ["./alloy.conf:/etc/alloy/alloy.conf:ro"]
+    command: ["run", "/etc/alloy/alloy.conf", "--server.http.listen-addr=0.0.0.0:12345"]
+    ports: ["4317:4317", "4318:4318"]
+    depends_on:
+      loki: { condition: service_started }
+      jaeger: { condition: service_started }
+      prometheus: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:12345/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [nx-net]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    user: root
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SERVER_ROOT_URL=http://localhost/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes: ["./grafana/provisioning:/etc/grafana/provisioning:ro", "grafana_data:/var/lib/grafana"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      prometheus: { condition: service_healthy }
+    networks: [nx-net]
+    restart: unless-stopped
+
+networks:
+  nx-net:
+    driver: bridge
+
+volumes:
+  surrealdb_data:
+  surrealdb_logs:
+  redis_data:
+  minio_data:
+#  redpanda_data:
+  loki_data:
+  prometheus_data:
+  jaeger_data:
+  jaeger_tmp:
+  grafana_data:
+  vault_data:
+  vault_logs:

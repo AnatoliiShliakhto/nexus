@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/domain/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/telemetry/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wasi/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/error-macros/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/error/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/error/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tooling/xtask/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/http-macros/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/http/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/http/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/components/test-wasm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clients/another-app/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clients/new-app/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clients/web-client/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/components/new-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/new-lib/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/database/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/database/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/components/audit/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/components/access/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/components/account/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/components/auth/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/components/organization/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tooling/ops/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/ui/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/showcase/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clients/console/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/i18n/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/i18n/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/logger/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/logger/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/services/gateway/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/config/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/dpop-api-lib/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/dpop-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/dpop-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/dpop-component/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/spin-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/spin-unstable-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/wasi-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/gateway_component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/ingress-component/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tooling/swagger/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/httpRequests" />
+      <excludeFolder url="file://$MODULE_DIR$/.spin" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/bin/ums-server" />
+      <excludeFolder url="file://$MODULE_DIR$/.secrets" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/dataSources" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

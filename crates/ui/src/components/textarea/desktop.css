@@ -1,0 +1,64 @@
+@layer components {
+    .textarea {
+        @apply flex w-full px-3 transition-all duration-200 outline-none rounded;
+        @apply text-[13px] text-base-content selection:bg-primary/30;
+
+        padding-top: 7px;
+        padding-bottom: 7px;
+        line-height: 1.5;
+
+        min-height: 4rem;
+        resize: vertical;
+        box-sizing: border-box;
+
+        @apply bg-base-300 border border-base-border-strong;
+        @apply placeholder:text-base-content/40;
+        @apply cursor-text select-text;
+
+        &:hover:not(:disabled):not(:focus) {
+            @apply bg-base-200 border-primary/60;
+        }
+
+        &:focus {
+            @apply ring-2! ring-primary/30! bg-base-100! border-primary!;
+        }
+
+        &:disabled {
+            @apply opacity-40! grayscale! bg-base-200!;
+        }
+
+        &.textarea-auto-height {
+            @apply resize-none overflow-hidden;
+            min-height: 2.25rem;
+            field-sizing: content;
+
+            transition-property: background-color, border-color, box-shadow, ring;
+        }
+
+        &[data-variant="default"] {
+            @apply bg-base-300 border-base-border-strong;
+        }
+
+        &[data-variant="outline"] {
+            @apply bg-transparent border-base-border-strong;
+            &:hover:not(:focus) { @apply bg-base-content/5; }
+        }
+
+        &[data-variant="ghost"] {
+            @apply bg-transparent border-transparent;
+            &:hover:not(:focus) {
+                background-color: var(--bg-hover);
+            }
+        }
+
+        &[data-variant="fade"] {
+            @apply bg-base-content/5 border-transparent;
+            &:hover:not(:focus) {
+                @apply bg-base-content/10;
+            }
+            &:focus {
+                @apply bg-base-100;
+            }
+        }
+    }
+}

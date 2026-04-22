@@ -1,0 +1,26 @@
+@layer components {
+  .separator {
+    background: var(--border);
+    @apply shrink-0 transition-colors duration-200;
+
+    &[data-orientation="horizontal"] {
+      @apply w-full h-px self-stretch;
+      min-height: 1px;
+      margin: 0.5rem 0;
+    }
+
+    &[data-orientation="vertical"] {
+      @apply h-full w-px self-stretch;
+      min-width: 1px;
+      margin: 0 0.5rem;
+    }
+
+    &.separator-strong {
+      background: var(--border-strong);
+    }
+
+    &.separator-dim {
+      background: oklch(from var(--border) l c h / 0.5);
+    }
+  }
+}

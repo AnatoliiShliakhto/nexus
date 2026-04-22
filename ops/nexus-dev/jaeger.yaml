@@ -1,0 +1,5 @@
+storage:
+  type: badger
+  badger:
+    directory: /badger/data
+    ephemeral: false

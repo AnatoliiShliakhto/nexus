@@ -1,0 +1,39 @@
+[package]
+name = "nx-wasi-component"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Example implementation of a WASI HTTP component using the nx-http framework"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "wasi", "component-model", "example", "http"]
+categories = ["wasm", "os::wasm", "network-programming"]
+publish = false
+
+[package.metadata.service]
+route = "/examples/wasi"
+access = "public"
+
+[package.metadata.component]
+package = "nexus:wasi-component"
+
+[package.metadata.component.target]
+world = "wasi-component"
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"wasi:http" = "0.2.10"
+
+[dependencies]
+nx-http = { workspace = true, features = ["wasi"] }
+wit-bindgen-rt.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "nx_wasi_component"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

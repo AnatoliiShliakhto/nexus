@@ -1,0 +1,39 @@
+[package]
+name = "nx-ui"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Nexus UI library"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = []
+categories = []
+publish.workspace = true
+
+[features]
+default = []
+desktop = ["dioxus/desktop"]
+
+[dependencies]
+dioxus = { workspace = true, features = [] }
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", default-features = false }
+dioxus-sdk-time.workspace = true
+heck.workspace = true
+serde.workspace = true
+nx-i18n.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-storage.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+confy.workspace = true
+parking_lot.workspace = true
+
+[lib]
+name = "nx_ui"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

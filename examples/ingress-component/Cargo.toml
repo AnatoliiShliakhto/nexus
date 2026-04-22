@@ -1,0 +1,38 @@
+[package]
+name = "nx-ingress-component"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Edge ingress component for Nexus. Handles health checks and traffic forwarding."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["ingress", "wasm", "proxy", "networking", "edge"]
+categories = ["wasm", "network-programming", "web-programming::http-server"]
+publish.workspace = true
+
+[package.metadata.service]
+route = "/api/..."
+access = "public"
+
+[package.metadata.service.spin]
+allowed_outbound_hosts = ["{{ nx_gateway_url }}"]
+
+[package.metadata.service.spin.variables]
+nx_gateway_url = "{{ nx_gateway_url }}"
+
+[dependencies]
+nx-http = { workspace = true, features = ["spin"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+utoipa.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "nx_ingress_component"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+

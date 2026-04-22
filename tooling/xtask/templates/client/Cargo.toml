@@ -1,0 +1,36 @@
+[package]
+name = "{{ name | kebab_case }}"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "{{ shortname | pascal_case }} client"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = []
+categories = []
+publish.workspace = true
+
+[features]
+default = []
+profiling = ["dep:dhat", "dep:console-subscriber"]
+
+[dependencies]
+console-subscriber = { workspace = true, optional = true }
+dhat = { workspace = true, optional = true }
+tokio = { workspace = true, features = [] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "ansi"] }
+tracing.workspace = true
+nx-error.workspace = true
+
+[[bin]]
+name = "{{ shortname | kebab_case }}"
+path = "src/main.rs"
+
+[lib]
+name = "{{ name | snake_case }}"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

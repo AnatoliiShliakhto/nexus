@@ -1,0 +1,107 @@
+@layer components {
+    .sheet-root {
+        @apply fixed z-1000 bg-black/40 backdrop-blur-sm transition-opacity duration-300;
+        top: var(--canvas-top, 0px);
+        left: var(--canvas-left, 0px);
+        right: var(--canvas-right, 0px);
+        bottom: var(--canvas-bottom, 0px);
+    }
+
+    .sheet-root[data-state="closed"] {
+        @apply opacity-0 pointer-events-none;
+    }
+
+    .sheet-root[data-state="open"] {
+        @apply opacity-100;
+    }
+
+    .sheet {
+        @apply fixed z-1001 flex flex-col bg-base-200 shadow-2xl;
+        @apply border-strong text-base-content gap-4;
+
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        will-change: transform;
+    }
+
+    .sheet-root[data-state="open"] .sheet[data-side="right"] {
+        animation: sheet-slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .sheet-root[data-state="open"] .sheet[data-side="left"] {
+        animation: sheet-slide-in-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .sheet-root[data-state="open"] .sheet[data-side="top"] {
+        animation: sheet-slide-in-top 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .sheet-root[data-state="open"] .sheet[data-side="bottom"] {
+        animation: sheet-slide-in-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .sheet[data-side="right"] {
+        @apply h-full top-0 bottom-0 right-0 left-auto border-l w-3/4 max-w-sm;
+        transform: translateX(100%);
+    }
+
+    .sheet[data-side="left"] {
+        @apply h-full top-0 bottom-0 left-0 right-auto border-r w-3/4 max-w-sm;
+        transform: translateX(-100%);
+    }
+
+    .sheet[data-side="top"] {
+        @apply border-b h-auto w-full top-0 left-0 right-0 bottom-auto;
+        transform: translateY(-100%);
+    }
+
+    .sheet[data-side="bottom"] {
+        @apply border-t h-auto w-full bottom-0 left-0 right-0 top-auto;
+        transform: translateY(100%);
+    }
+
+    .sheet-header {
+        @apply flex flex-col p-6 gap-1.5;
+    }
+
+    .sheet-footer {
+        @apply flex flex-col p-6 mt-auto gap-2 sm:flex-row sm:justify-end;
+    }
+
+    .sheet-title {
+        @apply m-0 text-lg font-bold text-base-content;
+    }
+
+    .sheet-description {
+        @apply m-0 text-sm text-base-content/60;
+    }
+
+    .sheet-close {
+        @apply absolute z-1010 top-4 right-4 flex items-center justify-center p-1 rounded-md transition-all;
+        @apply bg-transparent text-base-content/40 border-none;
+        @apply hover:bg-base-200 hover:text-base-content;
+        @apply outline-none focus:outline-none;
+    }
+
+    .sheet-root[data-state="open"] .sheet > * {
+        animation: sheet-fade-in 0.4s ease forwards;
+    }
+
+    @keyframes sheet-slide-in-right {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+    @keyframes sheet-slide-in-left {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
+    }
+    @keyframes sheet-slide-in-top {
+        from { transform: translateY(-100%); }
+        to { transform: translateY(0); }
+    }
+    @keyframes sheet-slide-in-bottom {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    @keyframes sheet-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+}

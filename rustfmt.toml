@@ -1,0 +1,19 @@
+# Use the latest stable formatting features
+edition = "2024"
+
+# Heuristics - "Max" is stable and great for keeping code compact
+use_small_heuristics = "Max"
+
+# Grouping & Sorting - These are the most important stable sorting features
+reorder_imports = true
+reorder_modules = true
+
+# Style choices that work on Stable
+newline_style = "Unix"
+use_try_shorthand = true
+
+# Control how many characters are allowed per line (Standard is 100)
+max_width = 100
+
+# This ensures that 'match' arms are formatted consistently
+match_block_trailing_comma = true

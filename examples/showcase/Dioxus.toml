@@ -1,0 +1,32 @@
+[application]
+name = "showcase"
+default_platform = "desktop"
+
+[web.app]
+title = "Nexus UI Showcase"
+
+[web.watcher]
+reload_html = true
+watch_path = ["src", "assets"]
+
+[bundle]
+publisher = "Anatolii Shliakhto"
+identifier = "dev.ashliakhto.nexus-showcase"
+copyright = "Copyright 2026 Anatolii Shliakhto"
+category = "Utility"
+short_description = "Nexus UI Showcase"
+long_description = "Nexus UI Showcase"
+#resources = ["target/dx/showcase/release/windows/app"]
+targets = ["msi"]
+
+[bundle.windows]
+product_name = "Nexus UI Showcase"
+file_description = "Nexus UI Showcase"
+timestamp_url = "http://timestamp.digicert.com"
+tsp = true
+allow_downgrades = true
+internal_name = "Nexus UI Showcase"
+original_filename = "nexus-showcase.exe"
+
+[bundle.windows.webview_install_mode.DownloadBootstrapper]
+silent = true

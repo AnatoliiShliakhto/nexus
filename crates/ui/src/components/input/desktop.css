@@ -1,0 +1,22 @@
+@layer components {
+  .input {
+    @apply h-9 px-3 flex items-center w-full transition-all outline-none;
+    @apply text-[13px] leading-none;
+
+    @apply bg-base-300 border border-strong rounded;
+    @apply text-base-content placeholder:text-base-content/40;
+    @apply cursor-text select-text;
+
+    &:hover:not(:disabled):not(:focus) {
+      @apply bg-base-200 border-primary/60;
+    }
+
+    &:focus {
+      @apply ring-2 ring-primary/30 bg-base-100 border-primary;
+    }
+
+    &:disabled {
+      @apply opacity-40 grayscale bg-base-200;
+    }
+  }
+}

@@ -1,0 +1,107 @@
+@layer components {
+    .select-root {
+        @apply relative shrink-0;
+    }
+
+    .select-trigger {
+        @apply h-9 px-3 flex items-center justify-between min-w-40 w-full rounded;
+        @apply bg-base-300 text-base-content transition-all;
+
+        border: 1px solid var(--border-strong);
+        outline: none;
+        user-select: none;
+        gap: 8px;
+        font-size: 13px;
+
+        &:hover:not([data-disabled="true"]):not([data-state="open"]) {
+            @apply bg-base-200 border-primary/60;
+        }
+
+        &:focus-visible, &[data-state="open"] {
+            @apply bg-base-100 border-primary/60;
+            @apply ring-2 ring-primary/30;
+        }
+    }
+
+    .select-value-container {
+        @apply inline-flex flex-1 items-center h-full overflow-hidden;
+        line-height: 1;
+    }
+
+    .select-value-wrapper {
+        @apply truncate block w-full text-left m-0 p-0;
+    }
+
+    .select-chevron {
+        @apply relative top-0 ml-2 size-3.5 shrink-0 transition-transform duration-200;
+    }
+
+    .select-list {
+        position: fixed !important;
+        display: block;
+        z-index: 9999;
+
+        top: anchor(bottom);
+        left: anchor(left);
+        width: anchor-size(width);
+        margin-top: 4px;
+
+        @apply p-1 rounded-md bg-base-300 border border-strong shadow-xl;
+        @apply outline-none overflow-x-hidden overflow-y-auto max-h-75;
+
+        &[data-state="open"] {
+            animation: select-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        position-try-fallbacks: flip-block;
+    }
+
+    .select-option {
+        @apply relative flex items-center justify-between h-8 px-2 rounded-sm;
+        @apply text-[13px] text-base-content select-none outline-none;
+
+        transition: background-color 0.1s ease, color 0.1s ease;
+
+        &[data-highlighted="true"],
+        &:hover {
+            @apply bg-base-200;
+        }
+
+        &[data-state="checked"] {
+            @apply text-primary font-bold;
+        }
+
+
+        &[data-state="checked"][data-highlighted] {
+            @apply text-primary-content;
+        }
+
+        &[data-disabled="true"] {
+            @apply opacity-30 cursor-not-allowed;
+        }
+    }
+
+    .select-option[data-highlighted] .select-indicator {
+        @apply text-primary-content;
+    }
+
+    .select-indicator {
+        @apply flex items-center justify-center size-3.5;
+        color: inherit;
+    }
+
+    .select-group-label {
+        @apply px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-base-content/40;
+    }
+}
+
+@keyframes select-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

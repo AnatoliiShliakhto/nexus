@@ -1,0 +1,26 @@
+[package]
+name = "nx-dpop-api-lib"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Contract definitions and DTOs for DPoP (Demonstrating Proof-of-Possession) validation in WASI and Spin components"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "wasi", "dpop", "oauth2", "spin"]
+categories = ["wasm", "network-programming", "no-std"]
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+utoipa.workspace = true
+
+[lib]
+name = "nx_dpop_api_lib"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

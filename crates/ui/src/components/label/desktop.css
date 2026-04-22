@@ -1,0 +1,22 @@
+@layer components {
+  .label {
+    @apply flex items-center gap-2 mb-1.5 select-none;
+
+    @apply text-[11px] font-bold uppercase tracking-wider truncate leading-none;
+
+    color: oklch(from var(--base-content) l c h / 0.6);
+
+    span, i, svg {
+      @apply size-3.5 opacity-80;
+    }
+
+    &.label-required::after {
+      content: "*";
+      @apply ml-1 text-error;
+    }
+
+    &.label-error {
+      @apply text-error opacity-100;
+    }
+  }
+}

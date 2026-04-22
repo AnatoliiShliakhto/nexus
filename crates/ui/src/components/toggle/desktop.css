@@ -1,0 +1,50 @@
+@layer components {
+    .toggle {
+        @apply inline-flex items-center justify-center p-0.5 bg-base-300 rounded-md border border-base-border;
+        @apply h-8 w-fit min-w-8 transition-all duration-150 isolation-auto shadow-inner;
+
+        box-sizing: border-box;
+        line-height: 0;
+        @apply outline-none;
+
+        & > span {
+            @apply flex items-center justify-center gap-2 px-2.5 h-full w-full;
+            @apply text-[13px] font-medium text-base-content/70 transition-all duration-150;
+            @apply rounded-[calc(var(--radius)-2px)];
+        }
+
+        &:hover:not(:disabled) > span {
+            @apply bg-base-active;
+        }
+
+        &[data-state="on"] {
+            --base-content: var(--primary);
+
+            & > span {
+                @apply bg-base-100 text-primary shadow-sm font-semibold;
+            }
+        }
+
+        &:focus-visible {
+            @apply z-10 ring-2 ring-primary/40 ring-offset-0;
+        }
+
+        &:active:not(:disabled) {
+            @apply scale-[0.96];
+        }
+
+        &:disabled,
+        &[data-disabled="true"] {
+            @apply opacity-30! grayscale! bg-base-200! border-base-border!;
+            @apply pointer-events-none;
+        }
+
+        svg, i {
+            @apply block size-3.5 shrink-0 transition-transform duration-200;
+        }
+
+        &[data-state="on"] svg {
+            @apply scale-110;
+        }
+    }
+}

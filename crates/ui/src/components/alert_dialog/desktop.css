@@ -1,0 +1,62 @@
+@layer components {
+  .alert-dialog-root {
+    @apply fixed z-1000 bg-black/45 backdrop-blur-md transition-opacity duration-300;
+    @apply flex items-center justify-center p-6;
+
+    top: var(--canvas-top, 0px);
+    left: var(--canvas-left, 0px);
+    right: var(--canvas-right, 0px);
+    bottom: var(--canvas-bottom, 0px);
+  }
+
+  .alert-dialog-root[data-state="closed"] {
+    @apply opacity-0 pointer-events-none;
+    animation: alert-fade-out 0.2s ease-in forwards;
+  }
+
+  .alert-dialog-root[data-state="open"] {
+    @apply opacity-100;
+    animation: alert-fade-in 0.2s ease-out forwards;
+  }
+
+  .alert-dialog-content {
+    @apply relative z-1001 flex flex-col w-full max-w-110 p-6 gap-4;
+    @apply bg-base-200 border border-strong rounded-lg shadow-2xl;
+    @apply text-base-content outline-none;
+
+    animation: alert-zoom-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .alert-dialog-title {
+    @apply text-xl font-bold tracking-tight text-base-content;
+  }
+
+  .alert-dialog-description {
+    @apply text-[15px] leading-relaxed text-base-content/60;
+  }
+
+  .alert-dialog-footer {
+    @apply flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-4;
+  }
+
+  .alert-dialog-root[data-state="open"] .alert-dialog-content > * {
+    animation: alert-item-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .alert-dialog-root[data-state="open"] .alert-dialog-title { animation-delay: 0.05s; }
+  .alert-dialog-root[data-state="open"] .alert-dialog-description { animation-delay: 0.1s; }
+  .alert-dialog-root[data-state="open"] .alert-dialog-footer { animation-delay: 0.15s; }
+
+  @keyframes alert-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes alert-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+  @keyframes alert-zoom-in {
+    from { opacity: 0; transform: scale(0.92) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes alert-item-slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}

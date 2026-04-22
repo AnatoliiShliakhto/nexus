@@ -1,0 +1,28 @@
+[package]
+name = "nx-i18n"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Internationalization engine, featuring compile-time generated type-safe keys and Fluent-based localization."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["i18n", "wasm", "fluent", "localization", "nexus"]
+categories = ["localization", "wasm", "web-programming"]
+publish.workspace = true
+
+[dependencies]
+nx-error.workspace = true
+fluent.workspace = true
+fxhash.workspace = true
+sys-locale.workspace = true
+tracing.workspace = true
+unic-langid.workspace = true
+
+[lib]
+name = "nx_i18n"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

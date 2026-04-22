@@ -1,0 +1,39 @@
+[package]
+name = "{{ name | kebab_case }}"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "{{ shortname | pascal_case }} component"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "spin", "fermyon"]
+categories = []
+publish.workspace = true
+
+[package.metadata.service]
+route = "/{{ shortname | kebab_case }}" # component route (eg. '/auth')
+access = "private"                      # public | private | inner
+depends_on = []                         # DB migration will apply after those dependencies
+
+[package.metadata.service.spin]
+allowed_outbound_hosts = []
+
+[package.metadata.service.spin.variables]
+
+[package.metadata.service.spin.environment]
+
+[dependencies]
+nx-http = { workspace = true, features = ["spin"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+utoipa.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "{{ name | snake_case }}"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

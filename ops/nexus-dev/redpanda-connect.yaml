@@ -1,0 +1,26 @@
+input:
+  kafka_franz:
+    seed_brokers: [ "redpanda:9092" ]
+    topics: [ "wasm-triggers" ]
+    consumer_group: "spin-connect-group"
+
+pipeline:
+  processors:
+    - log:
+        level: INFO
+        message: "Processing event for Wasm trigger: ${! content().string() }"
+
+    - bloblang: |
+        let t_id = uuid_v4().replace_all("-", "")
+        let s_id = uuid_v4().replace_all("-", "").slice(0, 16)
+        meta traceparent = "00-" + $t_id + "-" + $s_id + "-01"
+
+output:
+  http_client:
+    url: "http://host.docker.internal:3000/api/trigger"
+    verb: POST
+    headers:
+      Content-Type: application/json
+      traceparent: ${! meta("traceparent") }
+    retry_period: 1s
+    retries: 5

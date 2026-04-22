@@ -1,0 +1,91 @@
+@layer components {
+    .tooltip-trigger {
+        @apply inline-block cursor-default;
+    }
+
+    .tooltip-content {
+        @apply z-100 px-3 py-1.5 rounded border shadow-md select-none pointer-events-none;
+        @apply bg-base-100 text-base-content text-[12px] font-medium leading-tight;
+
+        position: fixed;
+        top: auto;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        border-color: var(--border-strong);
+        animation: tooltip-in 0.15s ease-out;
+        position-try-fallbacks: flip-block;
+    }
+
+    .tooltip-content::after {
+        @apply absolute bg-base-100 w-2 h-2 rotate-45 border-solid;
+        content: "";
+    }
+
+    .tooltip-content[data-side="right"] {
+        left: anchor(right);
+        top: anchor(center);
+        @apply ml-2 -translate-y-1/2;
+
+        &::after {
+            @apply top-1/2 -left-1 -mt-1 border-l border-b;
+            border-color: var(--border-strong);
+        }
+    }
+
+    .tooltip-content[data-side="left"] {
+        right: anchor(left);
+        top: anchor(center);
+        @apply mr-2 -translate-y-1/2;
+
+        &::after {
+            @apply top-1/2 -right-1 -mt-1 border-r border-t;
+            border-color: var(--border-strong);
+        }
+    }
+
+    .tooltip-content[data-side="top"] {
+        bottom: anchor(top);
+        left: anchor(center);
+        @apply mb-2 -translate-x-1/2;
+
+        &::after {
+            @apply -bottom-1.25 left-1/2 -ml-1 border-b border-r;
+            border-color: var(--border-strong);
+        }
+    }
+
+    .tooltip-content[data-side="bottom"] {
+        top: anchor(bottom);
+        left: anchor(center);
+        @apply mt-2 -translate-x-1/2;
+
+        &::after {
+            @apply -top-1.25 left-1/2 -ml-1 border-t border-l;
+            border-color: var(--border-strong);
+        }
+    }
+
+    .tooltip-content[data-state="closed"] {
+        @apply hidden opacity-0;
+    }
+
+    .tooltip-content[data-state="open"] {
+        @apply block opacity-100;
+    }
+
+    .tooltip[data-disabled="true"] .tooltip-content {
+        @apply hidden;
+    }
+
+    @keyframes tooltip-in {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+}

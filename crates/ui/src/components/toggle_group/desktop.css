@@ -1,0 +1,92 @@
+@layer components {
+    .toggle-group {
+        @apply inline-flex items-center p-0.5 bg-base-300 rounded-md border border-base-border;
+        @apply h-8 w-fit shadow-inner isolation-auto;
+
+        &[data-orientation="vertical"] {
+            @apply flex-col h-fit w-8;
+        }
+    }
+
+    .toggle-item {
+        @apply relative flex items-center justify-center gap-2 transition-all duration-150;
+        @apply text-[13px] font-medium text-base-content/70 cursor-default select-none outline-none;
+        @apply flex-1 bg-transparent;
+
+        .toggle-group:not([data-orientation="vertical"]) & {
+            @apply h-full px-3 min-w-8;
+            @apply border-l border-base-border-strong/30;
+
+            &:first-child {
+                @apply border-l-0 ml-0;
+                @apply rounded-l-[calc(var(--radius)-2px)];
+            }
+
+            &:not(:first-child) {
+                @apply -ml-px;
+            }
+
+            &:last-child {
+                @apply rounded-r-[calc(var(--radius)-2px)];
+            }
+
+            &:has(+ [data-state="on"]) {
+                @apply border-l-transparent;
+            }
+
+            &[data-state="on"] {
+                @apply border-l-transparent;
+            }
+        }
+
+        .toggle-group[data-orientation="vertical"] & {
+            @apply w-full py-1.5 h-8 min-h-8;
+            @apply border-t border-base-border-strong/30;
+
+            &:first-child {
+                @apply border-t-0 mt-0;
+                @apply rounded-t-[calc(var(--radius)-2px)];
+            }
+
+            &:not(:first-child) {
+                @apply -mt-px;
+            }
+
+            &:last-child {
+                @apply rounded-b-[calc(var(--radius)-2px)];
+            }
+
+            &:has(+ [data-state="on"]) {
+                @apply border-t-transparent;
+            }
+
+            &[data-state="on"] {
+                @apply border-t-transparent;
+            }
+        }
+
+        &[data-state="on"] {
+            @apply bg-base-100 text-primary font-semibold z-10 shadow-sm;
+        }
+
+        &:hover:not(:disabled) {
+            @apply bg-base-active;
+        }
+
+        &:focus-visible {
+            @apply z-20 ring-2 ring-primary/40 rounded-[calc(var(--radius)-3px)];
+        }
+
+        &:active:not(:disabled) {
+            @apply scale-[0.98];
+        }
+
+        &:disabled {
+            @apply opacity-30 grayscale pointer-events-none;
+        }
+
+        svg, i {
+            @apply size-3.5 shrink-0;
+        }
+    }
+}

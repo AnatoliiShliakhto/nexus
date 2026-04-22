@@ -1,0 +1,30 @@
+[package]
+name = "nx-spin-component"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Example implementation of a Fermyon Spin component using the nx-http framework"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "spin", "fermyon", "example", "http"]
+categories = ["wasm", "network-programming", "web-programming::http-server"]
+publish = false
+
+[package.metadata.service]
+route = "/examples/spin"
+access = "public"
+spin.allowed_outbound_hosts = ["{{ nx_wasi_component_url }}"]
+spin.variables = { nx_wasi_component_url = "{{ nx_wasi_component_url }}" }
+
+[dependencies]
+nx-http = { workspace = true, features = ["spin"] }
+
+[lib]
+crate-type = ["cdylib"]
+name = "nx_spin_component"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
