@@ -1,0 +1,38 @@
+[package]
+name = "nx-audit"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Audit component"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "spin", "fermyon"]
+categories = []
+publish.workspace = true
+
+[package.metadata.service]
+system = true
+route = "/api/audit"
+access = "protected"
+depends_on = ["engine"]
+
+[package.metadata.service.spin]
+allowed_outbound_hosts = ["{{ database_url }}"]
+
+[package.metadata.service.spin.variables]
+database_url = "{{ database_url }}"
+
+[package.metadata.service.spin.environment]
+
+[dependencies]
+nx-http = { workspace = true, features = ["spin"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "nx_audit"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

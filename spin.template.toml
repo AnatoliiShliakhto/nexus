@@ -1,0 +1,32 @@
+# =============================================================================
+# Nexus SPIN MANIFEST TEMPLATE
+# =============================================================================
+# This is the SOURCE OF TRUTH for the global Spin configuration.
+#
+# ⚠️ DO NOT run Spin using this file directly.
+# ⚠️ DO NOT edit the generated `spin.toml` in the root; it will be overwritten.
+#
+# To apply changes:
+# 1. Edit THIS file (`spin.template.toml`) for global settings/variables.
+# 2. Edit individual `Cargo.toml` metadata for component-specific settings.
+# 3. Run `cargo codegen` to synchronize and produce the final `spin.toml`.
+# =============================================================================
+
+spin_manifest_version = 2
+
+[application]
+name = "nexus-core"
+version = "0.1.0"
+authors = ["a.shlyakhto <a.shlyakhto@gmail.com>"]
+description = "Nexus - High Performance Core"
+
+[variables]
+database_url = { default = "http://localhost:8000" }
+database_namespace = { default = "nexus" }
+database_name = { default = "core" }
+#database_user = { required = true, secret = true }
+#database_pass = { required = true, secret = true }
+#database_private_key = { required = true, secret = true }
+#database_public_key = { required = true, secret = true }
+redis_url = { default = "redis://localhost:6379" }
+minio_url = { default = "http://localhost:9000" }

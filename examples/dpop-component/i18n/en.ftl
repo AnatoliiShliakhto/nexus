@@ -1,0 +1,12 @@
+dpop-url-invalid = The request address format is incorrect.
+dpop-proof-invalid = There is an issue with the authentication proof.
+dpop-verification-failed = We could not verify your identity. Please try signing in again.
+dpop-payload-invalid = We encountered a problem processing the security data.
+dpop-method-not-allowed = This action cannot be performed using the current method.
+dpop-bad-request = Some security parameters appear to be invalid.
+dpop-unsupported-content-type = The format of the provided data is not supported.
+auth-token-invalid = Your session is no longer valid. Please log in again.
+auth-token-expired = Your session has expired. Please sign in to continue your work.
+auth-token-missing = Authorization information is missing. Please log in.
+dpop-internal-error = An unexpected error occurred on our end. We are already working to fix it.
+dpop-resource-not-found = We could not find the information you requested.

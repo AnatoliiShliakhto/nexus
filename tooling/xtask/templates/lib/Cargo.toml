@@ -1,0 +1,22 @@
+[package]
+name = "{{ name | kebab_case }}"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "{{ shortname | pascal_case }} library"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = []
+categories = []
+publish.workspace = true
+
+[dependencies]
+
+[lib]
+name = "{{ name | snake_case }}"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

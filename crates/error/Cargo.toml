@@ -1,0 +1,31 @@
+[package]
+name = "nx-error"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A structured error-handling framework for WASI and Spin components with hierarchical reporting"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["wasm", "wasi", "error", "logging", "spin"]
+categories = ["rust-patterns", "wasm", "development-tools::debugging"]
+publish.workspace = true
+
+[features]
+default = []
+json = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+nx-error-macros.workspace = true
+fxhash.workspace = true
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[lib]
+name = "nx_error"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+

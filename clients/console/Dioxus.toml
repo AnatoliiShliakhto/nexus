@@ -1,0 +1,31 @@
+[application]
+name = "nexus-console"
+default_platform = "desktop"
+
+[web.app]
+title = "Nexus Console"
+
+[web.watcher]
+reload_html = true
+watch_path = ["src", "assets"]
+
+[bundle]
+publisher = "Anatolii Shliakhto"
+identifier = "dev.ashliakhto.nexus-console"
+copyright = "Copyright 2026 Anatolii Shliakhto"
+category = "Utility"
+short_description = "Nexus Console"
+long_description = "Nexus Console"
+targets = ["msi"]
+
+[bundle.windows]
+product_name = "Nexus Console"
+file_description = "Nexus Console"
+timestamp_url = "http://timestamp.digicert.com"
+tsp = true
+allow_downgrades = true
+internal_name = "Nexus Console"
+original_filename = "nexus-console.exe"
+
+[bundle.windows.webview_install_mode.DownloadBootstrapper]
+silent = true

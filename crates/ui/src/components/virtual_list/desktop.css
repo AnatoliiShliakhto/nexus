@@ -1,0 +1,7 @@
+.virtual-list-container {
+    @apply flex-1 overflow-y-auto h-full w-full outline-none;
+}
+
+.notification-item {
+    box-sizing: border-box;
+}

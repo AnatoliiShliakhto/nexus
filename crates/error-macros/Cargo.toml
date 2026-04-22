@@ -1,0 +1,29 @@
+[package]
+name = "nx-error-macros"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Procedural macros for the nx-error framework, enabling zero-boilerplate error handling for Wasm/WASI"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["proc-macro", "wasm", "wasi", "error-handling", "spin"]
+categories = ["development-tools::procedural-macros", "wasm"]
+publish.workspace = true
+
+[dependencies]
+proc-macro2.workspace = true
+proc-macro-crate.workspace = true
+quote.workspace = true
+syn.workspace = true
+heck.workspace = true
+fxhash.workspace = true
+
+[lib]
+proc-macro = true
+name = "nx_error_macros"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+<component name="ProjectDictionaryState">
+  <dictionary name="project">
+    <words>
+      <w>Fermyon</w>
+      <w>bindgen</w>
+      <w>cdylib</w>
+      <w>dioxus</w>
+      <w>dpop</w>
+      <w>eddsa</w>
+      <w>grafana</w>
+      <w>loki</w>
+      <w>minio</w>
+      <w>openapi</w>
+      <w>otel</w>
+      <w>prometheus</w>
+      <w>redpanda</w>
+      <w>responseoutparam</w>
+      <w>sccache</w>
+      <w>schemafull</w>
+      <w>signin</w>
+      <w>surql</w>
+      <w>surrealdb</w>
+      <w>surrealql</w>
+      <w>traceparent</w>
+      <w>wasip</w>
+      <w>wasm</w>
+      <w>xtask</w>
+    </words>
+  </dictionary>
+</component>

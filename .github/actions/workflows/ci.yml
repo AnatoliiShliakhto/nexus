@@ -1,0 +1,246 @@
+name: Nexus CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  merge_group:
+  schedule:
+    - cron: '0 2 * * 1'  # 2 AM UTC Mondays
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
+  RUSTUP_MAX_RETRIES: 10
+  NEXTEST_RETRIES: 2
+
+permissions: read-all
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'schedule'
+    permissions:
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.filter.outputs.rust || 'true' }}
+      docs: ${{ steps.filter.outputs.docs || 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        continue-on-error: true
+        with:
+          filters: |
+            rust:
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'spin.toml'
+              - '.cargo/**'
+            docs:
+              - '**/*.rs'
+              - '**/*.md'
+              - '**/Cargo.toml'
+
+  check:
+    name: Check & Format
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: |
+      always() &&
+      github.event_name != 'schedule' && 
+      (needs.changes.outputs.rust == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-deps
+        with:
+          components: rustfmt
+          tools: ''
+          enable-sccache: 'false'
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-${{ runner.os }}
+          cache-on-failure: true
+
+      - name: Check Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Cargo Check (Native)
+        run: cargo check --workspace --all-targets --all-features
+
+      - name: Cargo Check (WASI Components)
+        run: cargo check --workspace --all-targets --all-features
+
+  clippy:
+    name: Clippy Lints
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: |
+      always() &&
+      github.event_name != 'schedule' && 
+      !cancelled() && 
+      (needs.changes.outputs.rust == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-deps
+        with:
+          components: clippy
+          tools: ''
+          enable-sccache: 'false'
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-${{ runner.os }}
+          cache-on-failure: true
+
+      - name: Run Clippy (WASI Target)
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --workspace --all-targets --all-features --message-format=json -- -D warnings | tee clippy-report.json
+
+      - name: Upload Clippy Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clippy-report
+          path: clippy-report.json
+          retention-days: 7
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: |
+      always() &&
+      github.event_name != 'schedule' && 
+      !cancelled() && 
+      (needs.changes.outputs.rust == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-deps
+        with:
+          tools: cargo-nextest@0.9.124
+          enable-sccache: 'false'
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-${{ runner.os }}
+          cache-on-failure: true
+
+      - name: Run Tests
+        run: |
+          cargo nextest run --workspace --all-features \
+            --failure-output immediate-final \
+            --success-output never \
+            --status-level skip \
+            --no-tests=pass
+
+      - name: Run Doc Tests
+        if: needs.changes.outputs.docs == 'true'
+        run: cargo test --doc --workspace --all-features
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: Run cargo-deny
+        run: cargo deny --workspace --all-features --log-level warn check --hide-inclusion-graph
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Run cargo-audit
+        run: cargo audit
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: |
+      always() &&
+      github.event_name != 'schedule' && 
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') &&
+      (needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-deps
+        with:
+          tools: ''
+          enable-sccache: 'false'
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-${{ runner.os }}
+          cache-on-failure: true
+
+      - name: Generate Documentation
+        env:
+          RUSTDOCFLAGS: --cfg docsrs -D warnings
+        run: |
+          cargo doc --no-deps --workspace --all-features --document-private-items
+          # Redirects root to the nx-error crate docs as an entrypoint
+          echo '<meta http-equiv="refresh" content="0;url=nx_error/index.html">' > target/doc/index.html
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-24.04
+    needs: [ check, clippy, test ]
+    if: always() && github.event_name != 'schedule'
+    steps:
+      - name: Check All Jobs
+        run: |
+          results=(
+            "${{ needs.check.result }}"
+            "${{ needs.clippy.result }}"
+            "${{ needs.test.result }}"
+          )
+          
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "❌ Required job failed or was cancelled: $result"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All required jobs passed!"

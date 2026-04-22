@@ -1,0 +1,76 @@
+@layer components {
+    .switch-wrapper {
+        @apply flex items-center gap-2.5 select-none py-1.5 shrink-0;
+
+        &[data-disabled="true"] {
+            @apply pointer-events-none;
+        }
+    }
+
+    .switch-text {
+        @apply text-base-content transition-colors leading-none text-[13px] font-normal;
+
+        .switch-wrapper:hover:not([data-disabled="true"]) & {
+            @apply text-primary;
+        }
+
+        .switch-wrapper[data-disabled="true"] & {
+            @apply text-base-content/40;
+        }
+    }
+
+    .switch-root {
+        --sw-width: 2.25rem;
+        --sw-height: 1.25rem;
+        --sw-thumb-size: 0.875rem;
+        --sw-padding: 2px;
+        --sw-border: 1px;
+
+        @apply relative shrink-0 outline-none transition-all duration-200 cursor-default;
+        width: var(--sw-width);
+        height: var(--sw-height);
+        @apply rounded-full bg-base-300;
+        border: var(--sw-border) solid var(--border);
+
+        &[data-state="checked"] {
+            @apply bg-primary border-primary;
+        }
+
+        &[data-disabled="true"] {
+            @apply bg-base-200 opacity-50;
+            border-color: var(--border);
+        }
+
+        &:focus-visible {
+            @apply ring-2 ring-primary/30 ring-offset-1 ring-offset-primary;
+        }
+
+        .switch-wrapper:hover:not([data-disabled="true"]) & {
+            @apply ring-4 ring-primary/20 border-primary;
+        }
+    }
+
+    .switch-thumb {
+        @apply block rounded-full transition-all duration-200 ease-in-out;
+        @apply shadow-sm;
+        width: var(--sw-thumb-size);
+        height: var(--sw-thumb-size);
+        background-color: var(--border-strong);
+
+        position: absolute;
+        top: 50%;
+        margin-top: calc(var(--sw-thumb-size) / -2);
+        left: var(--sw-padding);
+
+        transition: left 200ms cubic-bezier(0.4, 0, 0.2, 1), width 150ms ease-in-out;
+
+        [data-state="checked"] & {
+            left: calc(var(--sw-width) - var(--sw-thumb-size) - var(--sw-padding) - (var(--sw-border) * 2));
+            @apply bg-primary-content;
+        }
+
+        .switch-root:active:not([data-disabled="true"]) & {
+            @apply w-4;
+        }
+    }
+}

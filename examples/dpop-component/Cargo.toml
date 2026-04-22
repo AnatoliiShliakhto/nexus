@@ -1,0 +1,46 @@
+[package]
+name = "nx-dpop-component"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "DPoP (RFC 9449) validation service for Wasm/Spin, designed for the Nexus ecosystem."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["dpop", "oauth2", "wasm", "spin", "authentication"]
+categories = ["authentication", "cryptography", "web-programming", "wasm"]
+publish.workspace = true
+
+[package.metadata.service]
+access = "inner"
+
+[package.metadata.service.spin]
+allowed_outbound_hosts = ["{{ redis_url }}"]
+
+[package.metadata.service.spin.variables]
+redis_url = "{{ redis_url }}"
+
+[package.metadata.service.spin.environment]
+DPOP_WINDOW_SEC = "60"
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+jsonwebtoken.workspace = true
+postcard.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+nx-dpop-api-lib = { path = "../dpop-api-lib"}
+nx-http = { workspace = true, features = ["spin"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+utoipa.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "nx_dpop_component"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

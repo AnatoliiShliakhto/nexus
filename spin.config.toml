@@ -1,0 +1,13 @@
+[[config_provider]]
+type = "vault"
+url = "http://localhost:8200"
+token = "dev-token"
+mount = "secret/nexus/components"
+
+[key_value_store.default]
+type = "redis"
+url = "redis://localhost:6379"
+
+[outbound_http]
+connection_pooling = true
+max_concurrent_requests = 100

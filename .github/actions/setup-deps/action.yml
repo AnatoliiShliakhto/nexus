@@ -1,0 +1,79 @@
+name: 'Setup Nexus Development Environment'
+description: 'Installs system dependencies, Rust toolchain, WASM targets, and CI tools'
+
+inputs:
+  components:
+    description: 'Rust components to install (e.g., clippy, rustfmt)'
+    required: false
+    default: ''
+  targets:
+    description: 'Rust targets to install (e.g., wasm32-wasip2)'
+    required: false
+    default: 'wasm32-wasip2,wasm32-unknown-unknown'
+  tools:
+    description: 'Comma-separated tools to install'
+    required: false
+    default: 'cargo-chef@0.1.73,cargo-nextest@0.9.124'
+  enable-sccache:
+    description: 'Enable sccache to avoid recompiling identical Rust artifacts'
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Free Disk Space (Ubuntu)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        df -h
+
+    - name: Install System Dependencies (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libglib2.0-dev libgtk-3-dev libsoup-3.0-dev \
+          libwebkit2gtk-4.1-dev libxdo-dev lld clang mold
+
+    - name: Install Fermyon Spin CLI
+      shell: bash
+      run: |
+        curl -fsSL https://developer.fermyon.com/downloads/install.sh | bash
+        sudo mv spin /usr/local/bin/spin
+
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: ${{ inputs.components }}
+        targets: ${{ inputs.targets }}
+
+    - name: Setup sccache
+      if: inputs.enable-sccache == 'true'
+      uses: mozilla-actions/sccache-action@v0.0.9
+
+    - name: Enable sccache environment
+      if: inputs.enable-sccache == 'true'
+      shell: bash
+      run: |
+        echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+        echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+        echo "SCCACHE_CACHE_SIZE=10G" >> "$GITHUB_ENV"
+
+    - name: Install CI Tools
+      if: inputs.tools != ''
+      uses: taiki-e/install-action@v2
+      with:
+        tool: ${{ inputs.tools }}
+
+    - name: Print Tool Versions
+      shell: bash
+      run: |
+        rustc --version
+        cargo --version
+        spin --version
+        if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest --version; fi

@@ -1,0 +1,73 @@
+# Nexus Gateway Configuration
+
+[server]
+# The IP address the server will bind to.
+# 0.0.0.0 means the server will listen on all available network interfaces.
+address = "0.0.0.0"
+
+# The port the HTTP server will listen to.
+port = 3001
+
+# Enable or disable SSL (HTTPS).
+# If true, ensure certificates are properly configured in the system.
+ssl = false
+
+[security]
+# Path to the secret storage for HashiCorp Vault.
+# Used as a base for 'Fortress-First' security architecture.
+vault_secret_path = "nexus/database"
+
+[security.identity.dpop]
+# Provider for replay protection: "redis" or "in-memory"
+# If "redis" is chosen, it will use the global [redis] connection pool with "in-memory" fallback.
+provider = "redis"
+
+# Maximum number of unique JTI (JWT IDs) to track in-memory.
+# Prevents OOM if using "in-memory" provider under heavyload.
+max_capacity = 100000
+
+# Allowed drift between 'iat' and server time
+time_window_sec = 120
+
+[traffic]
+# The size of the MPSC buffer queue that sits in front of the rate limiter.
+# Helps to smooth out microbursts of traffic.
+buffer_size = 1024
+
+# Maximum number of concurrent requests being processed at the same time.
+# Part of the backpressure mechanism to prevent OOM (Out of Memory) errors.
+concurrency_limit = 100
+
+# The number of allowed requests per the duration defined below.
+rate_limit_requests = 500
+
+# The duration window for the rate limit in seconds.
+# Example: 500 requests every 1 second.
+rate_limit_duration_secs = 1
+
+[http_client]
+# Maximum number of idle (keep-alive) connections to keep open per host.
+# Increasing this can improve performance for high-load proxying by reusing connections.
+pool_max_idle_per_host = 32
+
+# The duration in seconds to keep an idle connection in the pool before closing it.
+pool_idle_timeout_secs = 30
+
+# The maximum time in milliseconds allowed for establishing a new TCP connection.
+connect_timeout_millis = 500
+
+# The duration in seconds for TCP keep-alive probes to ensure the connection is still alive.
+tcp_keepalive_secs = 90
+
+# Enable or disable Nagle's algorithm (TCP_NODELAY).
+# Setting this to true reduces latency for small packets by sending them immediately.
+tcp_nodelay = true
+
+[redis]
+# Global connection settings for shared Redis resource
+url = "redis://localhost:6379"
+
+[database]
+url = "ws://localhost:8000"
+namespace = "nexus"
+name = "core"

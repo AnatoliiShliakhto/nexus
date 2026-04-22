@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "../../crates/ui/desktop.css";
+
+@source "./src/**/*.{rs,css}";

@@ -1,0 +1,26 @@
+[package]
+name = "nx-http-macros"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Procedural macros for the nx-http framework, automating Spin and WASI service entry points with integrated telemetry"
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["proc-macro", "wasm", "wasi", "spin", "telemetry"]
+categories = ["development-tools::procedural-macros", "wasm", "network-programming"]
+publish.workspace = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+
+[lib]
+proc-macro = true
+name = "nx_http_macros"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

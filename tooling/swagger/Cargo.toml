@@ -1,0 +1,21 @@
+[package]
+name = "swagger"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+utoipa.workspace = true
+utoipa-scalar.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+axum.workspace = true
+
+[lints]
+workspace = true
