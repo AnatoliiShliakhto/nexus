@@ -1,20 +1,22 @@
+use nx_error::prelude::*;
 use spin_sdk::variables;
 use std::borrow::Cow;
 use url::{ParseError, Url};
+use crate::error::ErrorExt;
 
-#[nx_error::error]
+#[error]
 pub enum SpinEnvironmentError {
     #[error(
         message = "Required configuration variable is missing",
-        status = 500,
-        code = "SERVICE_UNCONFIGURED"
+        status = ErrorStatus::InternalServerError,
+        code = "HTTP_SERVICE_UNCONFIGURED"
     )]
     VariableNotSet,
 
     #[error(
         message = "Configuration variable contains an invalid URL",
-        status = 500,
-        code = "SERVICE_CONFIGURATION_INVALID",
+        status = ErrorStatus::InternalServerError,
+        code = "HTTP_SERVICE_CONFIGURATION_INVALID",
         source = ParseError,
     )]
     UrlParse,

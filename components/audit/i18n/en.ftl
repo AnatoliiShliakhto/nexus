@@ -1,1 +1,1 @@
-audit-internal-error = На нашому боці виникла помилка. Ми вже працюємо над її виправленням.
+audit-internal-error = Something went wrong on our end. We're working to fix it.

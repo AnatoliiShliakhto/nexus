@@ -1,0 +1,60 @@
+[package]
+name = "nx-lockbox"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A unified, platform-independent secure storage manager for credentials, API keys, and encrypted JSON data."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = [
+    "keyring",
+    "secrets",
+    "credentials",
+    "security",
+    "storage"
+]
+categories = [
+    "os::macos-apis",
+    "os::windows-apis",
+    "os::linux-apis",
+    "api-bindings",
+    "config"
+]
+publish.workspace = true
+
+[dependencies]
+nx-error.workspace = true
+keyring-core = { workspace = true, features = ["sample"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+db-keystore.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true, features = ["keychain", "protected"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+apple-native-keyring-store = { workspace = true, features = ["protected"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+linux-keyutils-keyring-store.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+dbus-secret-service-keyring-store = { workspace = true, features = ["crypto-rust", "vendored"] }
+zbus-secret-service-keyring-store = { workspace = true, features = ["crypto-rust"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store.workspace = true
+
+[lib]
+name = "nx_lockbox"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

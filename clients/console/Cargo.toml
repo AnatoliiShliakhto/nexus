@@ -15,9 +15,11 @@ publish.workspace = true
 nx-error = { workspace = true, features = ["json"] }
 nx-ui = { workspace = true, features = ["desktop"] }
 nx-logger.workspace = true
+nx-web-client = { workspace = true, features = ["dioxus"] }
 dioxus = { workspace = true, features = ["desktop", "logger", "router"] }
 dirs.workspace = true
 tracing.workspace = true
+heck.workspace = true
 
 [lib]
 name = "nx_console"

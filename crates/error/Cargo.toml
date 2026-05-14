@@ -8,8 +8,8 @@ description = "A structured error-handling framework for WASI and Spin component
 readme = "README.md"
 repository.workspace = true
 license.workspace = true
-keywords = ["wasm", "wasi", "error", "logging", "spin"]
-categories = ["rust-patterns", "wasm", "development-tools::debugging"]
+keywords = ["error", "error-handling", "wasm"]
+categories = ["rust-patterns", "development-tools", "wasm"]
 publish.workspace = true
 
 [features]

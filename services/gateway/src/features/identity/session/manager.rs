@@ -1,7 +1,9 @@
 use crate::core::config::{DpopStorageProvider, GatewayConfig};
 use crate::features::identity::dpop::engine::DpopValidator;
 use crate::features::identity::error::IdentityError;
-use crate::features::identity::session::models::{Actions, AuthResponse, Session, SessionChanged};
+use crate::features::identity::session::models::{
+    Actions, AuthResponse, Session, SessionChanged, SessionStatus,
+};
 use crate::infra::database::{Database, DatabaseError};
 use crate::server::extractors::identity::IdentityContext;
 use futures_util::StreamExt;
@@ -55,7 +57,7 @@ impl SessionManager {
 
     pub(crate) async fn authenticate_with_credentials(
         &self,
-        login: &str,
+        username: &str,
         password: &str,
         identity: &IdentityContext,
     ) -> Result<(String, Arc<Session>), IdentityError> {
@@ -69,8 +71,8 @@ impl SessionManager {
         let res = self
             .inner
             .database
-            .query("fn::auth_with_credentials($login, $password, $jkt, $ip, $user_agent);")
-            .bind(("login", login.to_owned()))
+            .query("fn::auth_with_credentials($username, $password, $jkt, $ip, $user_agent);")
+            .bind(("username", username.to_owned()))
             .bind(("password", password.to_owned()))
             .bind(("jkt", jkt.clone()))
             .bind(("ip", identity.ip.clone()))
@@ -92,6 +94,7 @@ impl SessionManager {
                     jkt: SmolStr::new(jkt),
                     permissions: map_permissions(data.permissions),
                     ip: identity.ip.clone(),
+                    status: data.status.parse().unwrap_or_default(),
                 });
 
                 self.persist_session(session.clone()).await?;
@@ -136,6 +139,10 @@ impl SessionManager {
             })
             .await
             .map_err(|_| IdentityError::unauthorized())?;
+
+        if session.status != SessionStatus::Active {
+            return Err(IdentityError::unauthorized())?;
+        }
 
         if session.ip != identity.ip {
             warn!(sid = %session_id, "Session IP mismatch");
@@ -196,6 +203,7 @@ impl SessionManager {
                     jkt: SmolStr::new(jkt),
                     permissions: map_permissions(data.permissions.clone()),
                     ip: identity.ip.clone(),
+                    status: data.status.parse().unwrap_or_default(),
                 });
 
                 self.persist_session(session.clone()).await?;
@@ -286,6 +294,28 @@ impl SessionManager {
         let observer = SessionObserver::new(self.inner.database.clone(), self.clone());
         observer.spawn();
     }
+
+    pub(crate) async fn update_session_status(
+        &self,
+        session: Arc<Session>,
+        status: SessionStatus,
+    ) -> Result<Arc<Session>, IdentityError> {
+        let sid = session.id.clone();
+
+        self.inner
+            .database
+            .query("UPDATE type::record('_session', $id) SET status = $status")
+            .bind(("id", sid.to_string()))
+            .bind(("status", status.as_str().to_owned()))
+            .execute()
+            .await?;
+
+        let updated_session = session.with_status(status);
+
+        self.persist_session(updated_session.clone()).await?;
+
+        Ok(updated_session)
+    }
 }
 
 // --- Session Observer ---
@@ -302,6 +332,8 @@ impl SessionObserver {
     }
 
     fn spawn(self) {
+        sessions_maintenance(self.database.clone());
+
         tokio::spawn(async move {
             let mut backoff = Duration::from_secs(2);
             let max_backoff = Duration::from_mins(1);
@@ -365,4 +397,21 @@ fn map_permissions(raw: HashMap<String, Vec<String>>) -> FxHashMap<String, Actio
     }
 
     processed
+}
+
+fn sessions_maintenance(database: Database) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(3600));
+
+        loop {
+            if let Err(e) = database
+                .query("DELETE _session WHERE status = 'REVOKED' OR expires_at < time::now();")
+                .execute()
+                .await
+            {
+                e.emit();
+            }
+            interval.tick().await;
+        }
+    });
 }

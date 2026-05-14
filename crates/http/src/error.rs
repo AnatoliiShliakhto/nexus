@@ -21,7 +21,7 @@ pub enum Error {
     #[error(
         message = "Upstream service is unreachable or failed to respond",
         status = ErrorStatus::ServiceUnavailable,
-        code = "UPSTREAM_UNAVAILABLE",
+        code = "HTTP_UPSTREAM_UNAVAILABLE",
         source = spin_sdk::wasip3::http::types::ErrorCode,
     )]
     Unreachable,
@@ -29,7 +29,7 @@ pub enum Error {
     #[error(
         message = "Invalid URL format",
         status = ErrorStatus::BadRequest,
-        code = "URL_INVALID",
+        code = "HTTP_URL_INVALID",
         source = url::ParseError
     )]
     UrlInvalid,

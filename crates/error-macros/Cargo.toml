@@ -8,8 +8,8 @@ description = "Procedural macros for the nx-error framework, enabling zero-boile
 readme = "README.md"
 repository.workspace = true
 license.workspace = true
-keywords = ["proc-macro", "wasm", "wasi", "error-handling", "spin"]
-categories = ["development-tools::procedural-macros", "wasm"]
+keywords = ["error", "error-handling", "wasm", "derive"]
+categories = ["rust-patterns", "development-tools", "wasm"]
 publish.workspace = true
 
 [dependencies]

@@ -49,8 +49,8 @@ pub trait ErrorMetadata: fmt::Display + fmt::Debug + Error + 'static {
 
     /// Returns a machine-readable unique identifier for the error variant.
     /// Typically formatted in `SHOUTY_SNAKE_CASE` (e.g., `DATABASE_CONNECTION_FAILED`).
-    fn code(&self) -> &'static str {
-        "INTERNAL_SERVER_ERROR"
+    fn code(&self) -> Cow<'static, str> {
+        Cow::Borrowed("INTERNAL_SERVER_ERROR")
     }
 
     /// Returns the primary human-readable description of the error.
@@ -243,7 +243,6 @@ where
             err.target()
         )?;
 
-        // Use the DRY helper function
         let all_causes = collect_causes(err.error_source());
 
         let has_chain = !all_causes.is_empty();
@@ -313,7 +312,7 @@ impl SerializableReport {
     pub fn from_metadata<E: ErrorMetadata + ?Sized>(err: &E) -> Self {
         Self {
             status: err.status().as_u16(),
-            code: err.code().to_owned(),
+            code: err.code().into_owned(),
             message: err.message().into_owned(),
         }
     }
@@ -337,11 +336,10 @@ impl DetailedSerializableReport {
     pub fn from_metadata<E: ErrorMetadata + ?Sized>(err: &E) -> Self {
         Self {
             status: err.status().as_u16(),
-            code: err.code().to_owned(),
+            code: err.code().into_owned(),
             message: err.message().into_owned(),
             target: err.target(),
             details: err.details().map(Cow::into_owned),
-            // Use the DRY helper function
             chain: collect_causes(err.error_source()),
         }
     }

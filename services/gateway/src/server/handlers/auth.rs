@@ -1,12 +1,12 @@
 use crate::error::GatewayError;
 use crate::features::identity::error::IdentityError;
-use crate::features::identity::session::models::Actions;
+use crate::features::identity::session::models::{Actions, SessionStatus};
 use crate::server::extractors::identity::IdentityContext;
 use crate::server::state::GatewayState;
 use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum_extra::extract::CookieJar;
+use axum_extra::extract::{CookieJar, WithRejection};
 use fxhash::FxHashMap;
 use http::header;
 use serde::{Deserialize, Serialize};
@@ -14,36 +14,49 @@ use std::fmt::{Debug, Formatter};
 
 #[derive(Deserialize)]
 pub(crate) struct AuthorizationRequest {
-    login: String,
+    username: String,
     password: String,
 }
 
 impl Debug for AuthorizationRequest {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AuthorizationRequest")
-            .field("login", &self.login)
+            .field("username", &self.username)
             .field("password", &"********")
             .finish()
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct RefreshRequest {
+    refresh_token: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub(crate) struct AuthorizationResponse {
-    token: String,
+    status: SessionStatus,
+    access_token: String,
+    access_token_expires_at: u64,
+    refresh_token: String,
     permissions: FxHashMap<String, Actions>,
 }
 
 pub(crate) async fn authorization_handler(
     State(state): State<GatewayState>,
     ident: IdentityContext,
-    Json(payload): Json<AuthorizationRequest>,
+    WithRejection(Json(payload), _): WithRejection<Json<AuthorizationRequest>, GatewayError>,
 ) -> Result<impl IntoResponse, GatewayError> {
-    let AuthorizationRequest { login, password } = payload;
+    let access_token_expires_at = chrono::Utc::now().timestamp().cast_unsigned()
+        + state.config.get().security.identity.session.access_token_ttl_sec;
+    let AuthorizationRequest { username, password } = payload;
     let (refresh_token, session) =
-        state.sessions.authenticate_with_credentials(&login, &password, &ident).await?;
+        state.sessions.authenticate_with_credentials(&username, &password, &ident).await?;
 
     let response = AuthorizationResponse {
-        token: session.id.to_string(),
+        status: session.status,
+        access_token: session.id.to_string(),
+        access_token_expires_at,
+        refresh_token: refresh_token.clone(),
         permissions: session.permissions.clone(),
     };
 
@@ -62,16 +75,22 @@ pub(crate) async fn token_refresh_handler(
     State(state): State<GatewayState>,
     ident: IdentityContext,
     jar: CookieJar,
+    payload: Option<Json<RefreshRequest>>,
 ) -> Result<impl IntoResponse, GatewayError> {
-    let rt = jar
-        .get("rt")
-        .map(|cookie| cookie.value().to_string())
+    let rt = payload
+        .and_then(|Json(p)| p.refresh_token)
+        .or_else(|| jar.get("rt").map(|cookie| cookie.value().to_string()))
         .ok_or_else(|| IdentityError::refresh_token_missing())?;
+    let access_token_expires_at = chrono::Utc::now().timestamp().cast_unsigned()
+        + state.config.get().security.identity.session.access_token_ttl_sec;
 
     let (refresh_token, session) = state.sessions.refresh_session(&rt, &ident).await?;
 
     let response = AuthorizationResponse {
-        token: session.id.to_string(),
+        status: session.status,
+        access_token: session.id.to_string(),
+        access_token_expires_at,
+        refresh_token: refresh_token.clone(),
         permissions: session.permissions.clone(),
     };
 
@@ -90,7 +109,8 @@ pub(crate) async fn token_revoke_handler(
     State(state): State<GatewayState>,
     ident: IdentityContext,
 ) -> Result<impl IntoResponse, GatewayError> {
-    let _ = state.sessions.revoke_session(&ident).await;
+    let _ = state.sessions.validate_session(&ident).await?;
+    state.sessions.revoke_session(&ident).await?;
 
     Ok((
         [(

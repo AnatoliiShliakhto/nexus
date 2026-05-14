@@ -1,10 +1,10 @@
 use crate::error::AppError;
 use crate::services::utils::{
     get_project_root, is_workspace_member, normalize_project_name, refresh_metadata,
-    register_in_workspace,
+    register_in_workspace, run_command_silent,
 };
-use cargo_generate::{GenerateArgs, TemplatePath, generate};
 use clap::ValueEnum;
+use std::path::PathBuf;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub(crate) enum CrateKind {
@@ -16,97 +16,93 @@ pub(crate) enum CrateKind {
     Lib,
 }
 
+impl CrateKind {
+    fn config(&self) -> (&'static str, &'static str) {
+        match self {
+            Self::Client => ("clients", "client"),
+            Self::Component => ("components", "component"),
+            Self::Lib => ("crates", "lib"),
+        }
+    }
+}
+
 pub(crate) fn add_package(name: &str, kind: CrateKind) -> Result<(), AppError> {
+    check_cargo_generate_installed()?;
+
     if is_workspace_member(name)? {
         return Err(AppError::internal()
             .with_details(format!("Crate `{name}` is already a member of the workspace")));
     }
 
-    let name = normalize_project_name(name);
+    let short_name = normalize_project_name(name);
+    let full_name = format!("nx-{short_name}");
+    let (sub_dir, template_name) = kind.config();
+    let project_root = get_project_root()?;
+    let destination = project_root.join(sub_dir);
 
-    match kind {
-        CrateKind::Client => add_client_pkg(&name)?,
-        CrateKind::Component => add_component_pkg(&name)?,
-        CrateKind::Lib => add_library_pkg(&name)?,
+    println!("> 🛠️ Generating {kind:?} `{full_name}` in `{sub_dir}/{short_name}`...");
+
+    execute_generate(
+        &short_name,
+        &full_name,
+        &destination,
+        &format!("tooling/xtask/templates/{template_name}"),
+    )?;
+
+    if kind == CrateKind::Lib {
+        register_in_workspace(&project_root, &full_name, &format!("{sub_dir}/{short_name}"))?;
     }
 
+    refresh_metadata()?;
+
+    println!("> ✅ Successfully created {kind:?} `{full_name}`");
     Ok(())
 }
 
-fn add_client_pkg(name: &str) -> Result<(), AppError> {
-    let project_root = get_project_root()?;
-    let define = vec![format!("name=nx-{name}"), format!("shortname={name}")];
+fn execute_generate(
+    short_name: &str,
+    full_name: &str,
+    destination: &PathBuf,
+    template_path: &str,
+) -> Result<(), AppError> {
+    let dest_str = destination
+        .to_str()
+        .ok_or_else(|| AppError::internal().with_details("Invalid UTF-8 path for destination"))?;
 
-    let args = GenerateArgs {
-        name: Some(name.to_owned()),
-        destination: Some(project_root.join("clients")),
-        define,
-        template_path: TemplatePath {
-            path: Some("tooling/xtask/templates/client".to_owned()),
-            ..Default::default()
-        },
-        silent: true,
-        ..Default::default()
-    };
+    let args = [
+        "generate",
+        "--path",
+        template_path,
+        "--name",
+        short_name,
+        "--destination",
+        dest_str,
+        "--define",
+        &format!("name={full_name}"),
+        "--define",
+        &format!("shortname={short_name}"),
+        "--silent",
+    ];
 
-    generate(args).map_err(|e| {
-        AppError::cargo_generate().with_details(format!("Failed to generate `client` package: {e}"))
-    })?;
-    refresh_metadata()?;
-
-    println!("> ✅ Created client `nx-{name}` with package `clients/{name}`");
-    Ok(())
+    run_command_silent("cargo", &args).map_err(|e| {
+        e.with_details(format!(
+            "Failed to generate package using template `{template_path}`. \
+             Make sure the template exists and cargo-generate is working."
+        ))
+    })
 }
 
-fn add_component_pkg(name: &str) -> Result<(), AppError> {
-    let project_root = get_project_root()?;
-    let define = vec![format!("name=nx-{name}"), format!("shortname={name}")];
-
-    let args = GenerateArgs {
-        name: Some(name.to_owned()),
-        destination: Some(project_root.join("components")),
-        define,
-        template_path: TemplatePath {
-            path: Some("tooling/xtask/templates/component".to_owned()),
-            ..Default::default()
-        },
-        silent: true,
-        ..Default::default()
-    };
-
-    generate(args).map_err(|e| {
-        AppError::cargo_generate()
-            .with_details(format!("Failed to generate `component` package: {e}"))
-    })?;
-    refresh_metadata()?;
-
-    println!("> ✅ Created component `nx-{name}` with package `components/{name}`");
-    Ok(())
-}
-
-fn add_library_pkg(name: &str) -> Result<(), AppError> {
-    let project_root = get_project_root()?;
-    let define = vec![format!("name=nx-{name}"), format!("shortname={name}")];
-
-    let args = GenerateArgs {
-        name: Some(name.to_owned()),
-        destination: Some(project_root.join("crates")),
-        define,
-        template_path: TemplatePath {
-            path: Some("tooling/xtask/templates/lib".to_owned()),
-            ..Default::default()
-        },
-        silent: true,
-        ..Default::default()
-    };
-
-    generate(args).map_err(|e| {
-        AppError::cargo_generate()
-            .with_details(format!("Failed to generate `library` package: {e}"))
-    })?;
-    register_in_workspace(&project_root, &format!("nx-{name}"), &format!("crates/{name}"))?;
-    refresh_metadata()?;
-
-    println!("> ✅ Created library `nx-{name}` with package `crates/{name}`");
-    Ok(())
+fn check_cargo_generate_installed() -> Result<(), AppError> {
+    match std::process::Command::new("cargo")
+        .arg("generate")
+        .arg("--help")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+    {
+        Ok(status) if status.success() => Ok(()),
+        _ => Err(AppError::internal()
+            .with_message("`cargo-generate` is not installed.")
+            .with_help("Install it by running: `cargo install cargo-generate`")),
+    }
 }

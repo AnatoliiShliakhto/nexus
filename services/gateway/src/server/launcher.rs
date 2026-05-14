@@ -21,9 +21,13 @@ pub async fn serve() -> Result<(), GatewayError> {
         if settings.server.ssl { "https" } else { "http" }
     );
 
-    axum_server::bind(addr).handle(handle).serve(app.into_make_service_with_connect_info::<SocketAddr>()).await.map_err(|e| {
-        GatewayError::internal().with_details(e.to_string()).with_help("Failed to start server")
-    })?;
+    axum_server::bind(addr)
+        .handle(handle)
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        .await
+        .map_err(|e| {
+            GatewayError::internal().with_details(e.to_string()).with_help("Failed to start server")
+        })?;
 
     Ok(())
 }

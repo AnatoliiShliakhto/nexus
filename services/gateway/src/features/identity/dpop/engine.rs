@@ -7,8 +7,8 @@ use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use moka::future::Cache;
 use redis::aio::ConnectionManager;
 use sha2::{Digest, Sha256};
-use std::time::Duration;
 use smol_str::SmolStr;
+use std::time::Duration;
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -54,6 +54,7 @@ impl DpopValidator {
         }
 
         let jwk = header.jwk.as_ref().ok_or_else(IdentityError::proof_invalid)?;
+
         let decoding_key = DecodingKey::from_jwk(jwk)
             .map_err(|e| IdentityError::unsupported_key_type().with_details(e.to_string()))?;
 
@@ -65,6 +66,7 @@ impl DpopValidator {
 
         let token_data = decode::<DpopClaims>(proof, &decoding_key, &validation)
             .map_err(|e| IdentityError::verification_failed().with_details(e.to_string()))?;
+
         let claims = token_data.claims;
 
         self.validate_time_window(claims.iat, now)?;
@@ -154,10 +156,12 @@ impl DpopValidator {
         if fallback {
             let is_new = {
                 let mut created = false;
-                self.local_cache.get_with(SmolStr::new(jti), async {
-                    created = true;
-                    ()
-                }).await;
+                self.local_cache
+                    .get_with(SmolStr::new(jti), async {
+                        created = true;
+                        ()
+                    })
+                    .await;
                 created
             };
 

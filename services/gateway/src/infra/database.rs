@@ -211,10 +211,7 @@ impl Database {
     }
 
     pub(crate) fn query<'a>(&'a self, sql: &'a str) -> QueryBuilder<'a> {
-        QueryBuilder {
-            inner: self.inner.database.query(sql),
-            sql,
-        }
+        QueryBuilder { inner: self.inner.database.query(sql), sql }
     }
 
     #[tracing::instrument(skip(self), name = "db_gen_token")]
@@ -280,15 +277,16 @@ impl<'a> QueryBuilder<'a> {
     pub(crate) async fn execute(self) -> Result<QueryResult, DatabaseError> {
         let response = self.inner.await?;
 
-        let inner = response
-            .check()
-            .map_err(|e| DatabaseError::execution().with_details(e.to_string()))?;
+        let inner =
+            response.check().map_err(|e| DatabaseError::execution().with_details(e.to_string()))?;
 
         Ok(QueryResult { inner })
     }
 
     #[tracing::instrument(skip(self), name = "db_subscribe", fields(sql = %truncate_sql(self.sql, 100)))]
-    pub(crate) async fn subscribe<T>(self) -> Result<impl Stream<Item = Result<Notification<T>, DatabaseError>>, DatabaseError>
+    pub(crate) async fn subscribe<T>(
+        self,
+    ) -> Result<impl Stream<Item = Result<Notification<T>, DatabaseError>>, DatabaseError>
     where
         T: SurrealValue + Unpin + Send + Sync + 'static,
     {
@@ -302,7 +300,6 @@ impl<'a> QueryBuilder<'a> {
         Ok(stream.map(|item| item.map_err(DatabaseError::from)))
     }
 }
-
 
 // --- Helpers ---
 
@@ -333,9 +330,5 @@ async fn prerequisites(db: &Surreal<Any>, cfg: &GatewayConfig) -> Result<(), Dat
 }
 
 fn truncate_sql(sql: &str, max_len: usize) -> &str {
-    if sql.len() > max_len {
-        &sql[..max_len]
-    } else {
-        sql
-    }
+    if sql.len() > max_len { &sql[..max_len] } else { sql }
 }

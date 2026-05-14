@@ -4,9 +4,11 @@ use bitflags::bitflags;
 use fxhash::FxHashMap;
 use http::{HeaderValue, Method};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::fmt;
-use smol_str::SmolStr;
+use std::sync::Arc;
 use surrealdb::types::{SurrealValue, Value};
 
 bitflags! {
@@ -21,9 +23,45 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub(crate) enum SessionStatus {
+    Pending = 0,
+    Active = 1,
+    Revoked = 2,
+    #[default]
+    Expired = 3,
+}
+
+impl std::str::FromStr for SessionStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "PENDING" => Ok(Self::Pending),
+            "ACTIVE" => Ok(Self::Active),
+            "EXPIRED" => Ok(Self::Expired),
+            "REVOKED" => Ok(Self::Revoked),
+            _ => Err(()),
+        }
+    }
+}
+
+impl SessionStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Pending => "PENDING",
+            Self::Active => "ACTIVE",
+            Self::Revoked => "REVOKED",
+            Self::Expired => "EXPIRED",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Session {
     pub id: SmolStr,
+    pub status: SessionStatus,
     #[serde(with = "header_serde")]
     pub database_token: HeaderValue,
     pub permissions: FxHashMap<String, Actions>,
@@ -59,6 +97,10 @@ impl Session {
             .map(|&allowed| allowed.contains(required))
             .unwrap_or(false)
     }
+
+    pub(crate) fn with_status(&self, status: SessionStatus) -> Arc<Self> {
+        Arc::new(Self { status, ..self.clone() })
+    }
 }
 
 #[derive(SurrealValue)]
@@ -76,6 +118,7 @@ pub(super) struct SessionData {
     pub account: String,
     pub refresh_token: String,
     pub permissions: HashMap<String, Vec<String>>,
+    pub status: String,
 }
 
 #[derive(Debug, SurrealValue)]

@@ -105,7 +105,7 @@ pub(crate) enum IdentityError {
     SessionSerialization,
 
     #[error(
-        message = "Session is invalid or has expired",
+        message = "Session is invalid, revoked or expired",
         status = ErrorStatus::Unauthorized,
         code = "IDENTITY_SESSION_UNAUTHORIZED",
     )]

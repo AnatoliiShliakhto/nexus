@@ -414,7 +414,10 @@ fn add_http_trigger(doc: &mut DocumentMut, node: &ServiceNode) -> Result<(), App
         trigger.insert("route", Item::Value(Value::InlineTable(route_table)));
     } else {
         if let Some(route) = node.config.route.as_deref() {
-            trigger.insert("route", Item::Value(Value::from(format!("/{}/...", route.trim_matches('/')))));
+            trigger.insert(
+                "route",
+                Item::Value(Value::from(format!("/{}/...", route.trim_matches('/')))),
+            );
         } else {
             return Err(AppError::codegen()
                 .with_details_fn(|| format!("{}: `route` path is missing", node.key)));

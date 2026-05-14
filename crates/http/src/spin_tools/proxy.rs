@@ -1,4 +1,4 @@
-use nx_error::error;
+use nx_error::prelude::*;
 use spin_sdk::http::Request;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
@@ -8,16 +8,16 @@ use url::Url;
 pub enum ProxyRequestError {
     #[error(
         message = "The proxy target URI is invalid",
-        status = 500,
-        code = "PROXY_TARGET_INVALID",
+        status = ErrorStatus::InternalServerError,
+        code = "HTTP_PROXY_TARGET_INVALID",
         source = url::ParseError,
     )]
     TargetInvalid,
 
-    #[error(message = "Missing target URL", status = 500, code = "PROXY_TARGET_MISSING")]
+    #[error(message = "Missing target URL", status = ErrorStatus::InternalServerError, code = "HTTP_PROXY_TARGET_MISSING")]
     TargetUrlMissing,
 
-    #[error(message = "Failed to build request", status = 500, code = "PROXY_BUILD_FAILED")]
+    #[error(message = "Failed to build request", status = ErrorStatus::InternalServerError, code = "HTTP_PROXY_BUILD_FAILED")]
     BuildFailed,
 }
 

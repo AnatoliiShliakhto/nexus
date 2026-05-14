@@ -12,7 +12,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-cargo-generate.workspace = true
+#cargo-generate.workspace = true
 cargo_metadata.workspace = true
 chrono.workspace = true
 clap.workspace = true

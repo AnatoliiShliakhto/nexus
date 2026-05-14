@@ -11,8 +11,8 @@ use crossbeam_epoch as epoch;
 use futures_util::future::BoxFuture;
 use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
-use std::task::{Context, Poll};
 use smol_str::SmolStr;
+use std::task::{Context, Poll};
 use tower::{Layer, Service};
 use url::Url;
 
@@ -71,9 +71,10 @@ where
 
             let Some((component, target, protected)) = ({
                 let guard = epoch::pin();
-                state.routes.match_prefix(path, &guard).map(|route| {
-                    (route.component.clone(), route.target.clone(), route.protected)
-                })
+                state
+                    .routes
+                    .match_prefix(path, &guard)
+                    .map(|route| (route.component.clone(), route.target.clone(), route.protected))
             }) else {
                 return inner.call(req).await;
             };

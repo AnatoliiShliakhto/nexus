@@ -179,13 +179,13 @@ DEFINE FUNCTION fn::get_account_permissions($account: record<account>) {
 
 -- [DML: fn::auth_with_credentials]
 DEFINE FUNCTION fn::auth_with_credentials(
-    $login: string,
+    $username: string,
     $password: string,
     $jkt: string,
     $ip: option<bytes>,
     $ua: option<string>
 ) {
-    LET $account_id = type::record('account', $login);
+    LET $account_id = type::record('account', $username);
 
     LET $account = (
         SELECT id, password, totp_enabled, allowed_ips
@@ -217,7 +217,8 @@ DEFINE FUNCTION fn::auth_with_credentials(
                 session_id: $_session.id.id(),
                 account: $account.id.id(),
                 refresh_token: $refresh_token,
-                permissions: $_session.permissions
+                permissions: $_session.permissions,
+                status: $status
             }
         }
     } ELSE {
@@ -240,7 +241,7 @@ DEFINE FUNCTION fn::auth_refresh(
     LET $_session = (
         SELECT *, account.allowed_ips AS account_ips
         FROM ONLY $session_id
-        WHERE status == 'ACTIVE' AND expires_at > time::now()
+        WHERE status == 'ACTIVE' || status = 'PENDING' AND expires_at > time::now()
     );
 
     RETURN IF $_session.id {
@@ -267,7 +268,8 @@ DEFINE FUNCTION fn::auth_refresh(
                     session_id: $_session.id.id(),
                     account: $_session.account.id.id(),
                     refresh_token: $new_token,
-                    permissions: $_session.permissions
+                    permissions: $_session.permissions,
+                    status: $_session.status
                 }
             }
         }
@@ -289,7 +291,7 @@ DEFINE FUNCTION fn::auth_refresh(
                     account: $_session.account.id.id(),
                     refresh_token: $new_token,
                     permissions: $_session.permissions,
-                    allowed_ips: $_session.account_ips
+                    status: $_session.status
                 }
             }
         }
@@ -300,6 +302,26 @@ DEFINE FUNCTION fn::auth_refresh(
     } ELSE {
         { status: "Err", code: "SESSION_EXPIRED" }
     };
+};
+
+-- [DML: fn::auth_revoke]
+DEFINE FUNCTION fn::auth_revoke(
+    $id: string,
+    $ip: option<bytes>
+) {
+    LET $session_id = type::record('_session', $id);
+
+    LET $_session = (SELECT id FROM ONLY $session_id WHERE status != 'REVOKED');
+
+    IF $_session.id {
+        UPDATE $_session.id SET
+            status = 'REVOKED',
+            refresh_token = rand::id($CONFIG_TOKEN_LEN),
+            previous_token = NONE,
+            ip = $ip;
+    };
+
+    RETURN { status: "Ok" };
 };
 
 -- [EVENTS]
@@ -325,26 +347,6 @@ DEFINE EVENT sync_on_role_change ON TABLE role_permission WHEN $event = 'UPDATE'
     LET $affected = (SELECT VALUE account FROM assignment WHERE role = $after.role);
     DELETE _access_cache WHERE account IN $affected;
     DELETE _access_cache_meta WHERE account IN $affected;
-};
-
--- [DML: fn::auth_revoke]
-DEFINE FUNCTION fn::auth_revoke(
-    $id: string,
-    $ip: option<bytes>
-) {
-    LET $session_id = type::record('_session', $id);
-
-    LET $_session = (SELECT id FROM ONLY $session_id WHERE status != 'REVOKED');
-
-    IF $_session.id {
-        UPDATE $_session.id SET
-            status = 'REVOKED',
-            refresh_token = NONE,
-            previous_token = NONE,
-            ip = $ip;
-    };
-
-    RETURN { status: "Ok" };
 };
 
 -- DEFINE EVENT sync_owner_role ON TABLE permission WHEN $event = 'CREATE' THEN {

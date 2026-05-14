@@ -38,6 +38,7 @@ pub(crate) fn generate_i18n() -> Result<(), AppError> {
         get_packages_in_dir(&metadata, "crates"),
         get_packages_in_dir(&metadata, "components"),
         get_packages_in_dir(&metadata, "clients"),
+        get_packages_in_dir(&metadata, "services"),
     ]
     .into_iter()
     .flatten()

@@ -1,3 +1,4 @@
 mod centered;
+mod main;
 
-pub(crate) use self::centered::*;
+pub(crate) use self::{centered::*, main::*};

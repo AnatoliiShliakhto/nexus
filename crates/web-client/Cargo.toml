@@ -1,0 +1,46 @@
+[package]
+name = "nx-web-client"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "DPoP-enabled HTTP client for NEXUS ecosystem, optimized for Wasm and Dioxus."
+readme = "README.md"
+repository.workspace = true
+license.workspace = true
+keywords = ["nexus", "dpop", "wasm", "dioxus", "auth"]
+categories = ["web-programming::http-client", "wasm", "network-programming", "authentication"]
+publish.workspace = true
+
+[features]
+default = []
+dioxus = ["dep:dioxus", "dioxus/signals"]
+
+[dependencies]
+nx-lockbox.workspace = true
+nx-error.workspace = true
+arc-swap.workspace = true
+bitflags.workspace = true
+bytes.workspace = true
+fxhash.workspace = true
+tokio = { workspace = true, features = [] }
+chrono = { workspace = true, features = ["js-sys"] }
+serde.workspace = true
+serde_json.workspace = true
+serde_repr.workspace = true
+sha2.workspace = true
+base64.workspace = true
+tracing.workspace = true
+jsonwebtoken = { workspace = true, features = ["ed25519-dalek", "rand", "rust_crypto"] }
+uuid = { workspace = true, features = ["js", "v4", "fast-rng"] }
+reqwest = { workspace = true, features = ["json", "form", "multipart", "cookies"] }
+getrandom = { workspace = true, features = ["wasm_js"] }
+ed25519-dalek = { workspace = true }
+dioxus = { workspace = true, optional = true }
+
+[lib]
+name = "nx_web_client"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

@@ -1,0 +1,9 @@
+web-client-api-error = The server encountered an unexpected issue. Please try again later.
+web-client-dpop-signing-failed = Security verification failed. Re-logging into your account might fix this.
+web-client-header-error = The application failed to format the request correctly. Ensure you are using the latest version.
+web-client-serialization-error = Could not process the data received from the server.
+web-client-internal-error = An unexpected internal error occurred. Please restart the application.
+web-client-request-timeout = The request took too long to complete. Please check your connection speed and try again.
+web-client-connection-failed = Unable to reach the server. It might be offline, or your firewall could be blocking the connection.
+web-client-decode-error = The server's response was in an unrecognizable format.
+web-client-request-failed = The request could not be sent. Please verify your network settings.

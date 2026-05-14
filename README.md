@@ -27,6 +27,9 @@ Nexus is not "WASM-only". It is a bridge for enterprise migration:
 * **Unified Ingress:** A single Axum-based gateway manages routing, security, and telemetry for both layers
   transparently.
 
+## [Documentation](docs/articles/README.md)
+* [Building NEXUS (Part 1): Errors as Infrastructure](docs/articles/nx-error/README.md) — A deep dive into the architectural foundations of Nexus.
+
 ---
 
 ## 🏗 High-Level Architecture

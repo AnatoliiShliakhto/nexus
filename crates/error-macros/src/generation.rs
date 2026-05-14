@@ -15,8 +15,8 @@ pub(super) fn generate_implementations(
     let display_impl = generate_display(enum_name, base_path);
     let std_error_impl = generate_std_error(enum_name, infos);
     let constructors = generate_constructors(enum_name, infos, base_path);
-    let mutators = generate_mutators(enum_name, infos);
-    let trait_def_and_impl = generate_trait_ext(enum_name);
+    let mutators = generate_mutators(enum_name, infos, base_path);
+    let trait_def_and_impl = generate_trait_ext(enum_name, base_path);
     let from_impls = generate_from_impls(enum_name, infos, base_path);
 
     quote! {
@@ -40,7 +40,7 @@ fn generate_data_struct(enum_name: &Ident, base_path: &TokenStream) -> TokenStre
         #[derive(Debug)]
         pub struct #data_name {
             pub(crate) status: #base_path::ErrorStatus,
-            pub(crate) code: &'static str,
+            pub(crate) code: ::std::borrow::Cow<'static, str>,
             pub(crate) message: ::std::borrow::Cow<'static, str>,
             pub(crate) details: ::std::option::Option<::std::borrow::Cow<'static, str>>,
             pub(crate) help: ::std::option::Option<::std::borrow::Cow<'static, str>>,
@@ -77,7 +77,7 @@ fn generate_constructors(
                     Self::#variant_ident {
                         data: Box::new(#data_name {
                             status: #base_path::ErrorStatus::from(#status),
-                            code: #code,
+                            code: #code.into(),
                             message: #msg.into(),
                             details: ::std::option::Option::None,
                             help: #help,
@@ -95,7 +95,21 @@ fn generate_constructors(
     }
 }
 
-fn generate_mutators(enum_name: &Ident, infos: &[ErrorVariantInfo]) -> TokenStream {
+fn generate_mutators(
+    enum_name: &Ident,
+    infos: &[ErrorVariantInfo],
+    base_path: &TokenStream,
+) -> TokenStream {
+    let status_arms = infos.iter().map(|i| {
+        let v = &i.ident;
+        let cfg = &i.cfg_attrs;
+        quote! { #(#cfg)* Self::#v { data, .. } => data.status = status.into(), }
+    });
+    let code_arms = infos.iter().map(|i| {
+        let v = &i.ident;
+        let cfg = &i.cfg_attrs;
+        quote! { #(#cfg)* Self::#v { data, .. } => data.code = code.into(), }
+    });
     let message_arms = infos.iter().map(|i| {
         let v = &i.ident;
         let cfg = &i.cfg_attrs;
@@ -114,6 +128,20 @@ fn generate_mutators(enum_name: &Ident, infos: &[ErrorVariantInfo]) -> TokenStre
 
     quote! {
         impl #enum_name {
+            #[inline]
+            pub fn with_status(mut self, status: impl Into<#base_path::ErrorStatus>) -> Self {
+                match &mut self { #(#status_arms)* }
+                self
+            }
+            #[inline]
+            pub fn with_code(mut self, code: impl Into<::std::borrow::Cow<'static, str>>) -> Self {
+                match &mut self { #(#code_arms)* }
+                self
+            }
+            #[inline]
+            pub fn with_code_fn<F>(mut self, f: F) -> Self where F: FnOnce() -> String {
+                self.with_code(f())
+            }
             #[inline]
             pub fn with_message(mut self, message: impl Into<::std::borrow::Cow<'static, str>>) -> Self {
                 match &mut self { #(#message_arms)* }
@@ -180,7 +208,7 @@ fn generate_error_metadata(
     let code_arms = infos.iter().map(|i| {
         let v = &i.ident;
         let cfg = &i.cfg_attrs;
-        quote! { #(#cfg)* Self::#v { data, .. } => data.code, }
+        quote! { #(#cfg)* Self::#v { data, .. } => data.code.clone(), }
     });
     let status_arms = infos.iter().map(|i| {
         let v = &i.ident;
@@ -212,7 +240,7 @@ fn generate_error_metadata(
             fn status(&self) -> #base_path::ErrorStatus {
                 match self { #(#status_arms)* }
             }
-            fn code(&self) -> &'static str {
+            fn code(&self) -> ::std::borrow::Cow<'static, str> {
                 match self { #(#code_arms)* }
             }
             fn message(&self) -> ::std::borrow::Cow<'static, str> {
@@ -244,10 +272,13 @@ fn generate_display(enum_name: &Ident, base_path: &TokenStream) -> TokenStream {
     }
 }
 
-fn generate_trait_ext(enum_name: &Ident) -> TokenStream {
+fn generate_trait_ext(enum_name: &Ident, base_path: &TokenStream) -> TokenStream {
     let trait_name = format_ident!("{enum_name}Ext");
     quote! {
         pub trait #trait_name<T> {
+            fn with_status(self, status: impl Into<#base_path::ErrorStatus>) -> ::std::result::Result<T, #enum_name>;
+            fn with_code(self, code: impl Into<::std::borrow::Cow<'static, str>>) -> ::std::result::Result<T, #enum_name>;
+            fn with_code_fn<F>(self, f: F) -> ::std::result::Result<T, #enum_name> where F: FnOnce() -> String;
             fn with_message(self, message: impl Into<::std::borrow::Cow<'static, str>>) -> ::std::result::Result<T, #enum_name>;
             fn with_message_fn<F>(self, f: F) -> ::std::result::Result<T, #enum_name> where F: FnOnce() -> String;
             fn with_details(self, details: impl Into<::std::borrow::Cow<'static, str>>) -> ::std::result::Result<T, #enum_name>;
@@ -260,6 +291,18 @@ fn generate_trait_ext(enum_name: &Ident) -> TokenStream {
             where
             E: ::std::convert::Into<#enum_name>,
         {
+            #[inline]
+            fn with_status(self, status: impl Into<#base_path::ErrorStatus>) -> ::std::result::Result<T, #enum_name> {
+                self.map_err(|e| ::std::convert::Into::<#enum_name>::into(e).with_status(status))
+            }
+            #[inline]
+            fn with_code(self, code: impl Into<::std::borrow::Cow<'static, str>>) -> ::std::result::Result<T, #enum_name> {
+                self.map_err(|e| ::std::convert::Into::<#enum_name>::into(e).with_code(code))
+            }
+            #[inline]
+            fn with_code_fn<F>(self, f: F) -> ::std::result::Result<T, #enum_name> where F: FnOnce() -> String {
+                self.map_err(|e| ::std::convert::Into::<#enum_name>::into(e).with_code_fn(f))
+            }
             #[inline]
             fn with_message(self, message: impl Into<::std::borrow::Cow<'static, str>>) -> ::std::result::Result<T, #enum_name> {
                 self.map_err(|e| ::std::convert::Into::<#enum_name>::into(e).with_message(message))
@@ -345,7 +388,7 @@ fn generate_adapter(
                     #(#cfg)*
                     impl<E: #base_path::ErrorMetadata + 'static> #base_path::ErrorMetadata for #adapter_name<E, #marker> {
                         #[inline] fn status(&self) -> #base_path::ErrorStatus { #status_body }
-                        #[inline] fn code(&self) -> &'static str { #code_body }
+                        #[inline] fn code(&self) -> ::std::borrow::Cow<'static, str> { #code_body }
                         #[inline] fn message(&self) -> ::std::borrow::Cow<'static, str> { #msg_body }
                         #[inline] fn help(&self) -> ::std::option::Option<::std::borrow::Cow<'static, str>> { #help_body }
                         fn target(&self) -> &'static str { #base_path::ErrorMetadata::target(&self.0) }
@@ -368,7 +411,7 @@ fn generate_adapter(
                     #(#cfg)*
                     impl<E: ::std::error::Error + 'static> #base_path::ErrorMetadata for #adapter_name<E, #marker> {
                         #[inline] fn status(&self) -> #base_path::ErrorStatus { #base_path::ErrorStatus::from(#status) }
-                        #[inline] fn code(&self) -> &'static str { #code }
+                        #[inline] fn code(&self) -> ::std::borrow::Cow<'static, str> { #code.into() }
                         #[inline] fn message(&self) -> ::std::borrow::Cow<'static, str> { #msg.into() }
                         #[inline] fn help(&self) -> ::std::option::Option<::std::borrow::Cow<'static, str>> { #help }
                         fn details(&self) -> ::std::option::Option<::std::borrow::Cow<'static, str>> {

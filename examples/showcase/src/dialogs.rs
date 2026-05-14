@@ -41,7 +41,6 @@ pub(crate) fn DialogDemo() -> Element {
                     "Here is some additional information about the item."
                 }
             }
-
         }
 
         AlertDialogRoot {

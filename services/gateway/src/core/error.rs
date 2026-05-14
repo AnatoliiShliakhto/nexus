@@ -1,3 +1,4 @@
+use axum::extract::rejection::JsonRejection;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use nx_error::prelude::*;
@@ -18,7 +19,6 @@ pub enum GatewayError {
     // ------------------------------------------------------------------------
     // Infrastructure & Storage Errors
     // ------------------------------------------------------------------------
-
     /// Triggered when the Redis client fails to connect or execute a command.
     /// This is vital for distributed features like DPoP replay protection or rate limiting.
     #[error(
@@ -117,6 +117,13 @@ pub enum GatewayError {
     )]
     AccessDenied,
 
+    #[error(
+        message = "Invalid request payload",
+        status = ErrorStatus::UnprocessableEntity,
+        code = "GW_PAYLOAD_INVALID_FORMAT",
+    )]
+    InvalidPayload,
+
     // ------------------------------------------------------------------------
     // Generic Errors
     // ------------------------------------------------------------------------
@@ -165,5 +172,12 @@ impl GatewayError {
             details = %self.details().as_deref().unwrap_or(""),
             "{}", self.message(),
         );
+    }
+}
+
+impl From<JsonRejection> for GatewayError {
+    fn from(rejection: JsonRejection) -> Self {
+        let error = GatewayError::invalid_payload().with_message(rejection.body_text());
+        error
     }
 }

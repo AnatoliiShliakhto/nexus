@@ -6,8 +6,7 @@ pub(crate) mod header_serde {
     where
         S: Serializer,
     {
-        let s = std::str::from_utf8(value.as_bytes())
-            .map_err(serde::ser::Error::custom)?;
+        let s = std::str::from_utf8(value.as_bytes()).map_err(serde::ser::Error::custom)?;
         serializer.serialize_str(s)
     }
 
