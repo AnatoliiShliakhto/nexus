@@ -26,14 +26,15 @@
 
 #![allow(unused_crate_dependencies)]
 pub mod error;
-#[cfg(feature = "opentelemetry-otlp")]
-pub mod otlp;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
+mod otlp;
+mod utils;
 
 use crate::error::LoggerError;
 use private::Sealed;
 use std::path::PathBuf;
-use tracing::field::Field;
-use tracing_subscriber::fmt::{FormatFields, layer};
+use std::sync::OnceLock;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -43,26 +44,28 @@ use crate::error::LoggerErrorExt;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing_appender::non_blocking::WorkerGuard;
 
-#[cfg(feature = "opentelemetry-otlp")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
 use crate::otlp::{OpenTelemetryGuard, init_otlp_pipeline};
-#[cfg(feature = "opentelemetry")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
 use opentelemetry::global;
-#[cfg(feature = "opentelemetry")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
 use opentelemetry_sdk::propagation::TraceContextPropagator;
+
 pub use tracing::level_filters::LevelFilter;
 
+use crate::utils::{FilteredFields, IgnoreFields, JsonFormatEvent, SpanFieldCollector};
 #[cfg(not(target_arch = "wasm32"))]
 pub use tracing_appender::rolling::Rotation;
-
-use tracing_subscriber::field::{MakeVisitor, Visit};
-use tracing_subscriber::fmt::format::{DefaultFields, Writer};
+use tracing_subscriber::fmt::layer;
 
 #[cfg(not(target_arch = "wasm32"))]
 const DEFAULT_MAX_FILES: usize = 10;
 #[cfg(not(target_arch = "wasm32"))]
 const LOG_FILE_SUFFIX: &str = "log";
 
-/// Internal configuration for the logger.
+static INITIALIZED: OnceLock<()> = OnceLock::new();
+
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct LoggerConfig {
     console: bool,
@@ -73,8 +76,10 @@ pub struct LoggerConfig {
     #[cfg(not(target_arch = "wasm32"))]
     max_files: usize,
     json: bool,
+    ansi: bool,
+    spans: bool,
     env_filter: Option<String>,
-    #[cfg(feature = "opentelemetry")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
     opentelemetry: bool,
 }
 
@@ -89,14 +94,14 @@ impl Default for LoggerConfig {
             #[cfg(not(target_arch = "wasm32"))]
             max_files: DEFAULT_MAX_FILES,
             json: false,
+            ansi: true,
+            spans: true,
             env_filter: None,
-            #[cfg(feature = "opentelemetry")]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
             opentelemetry: false,
         }
     }
 }
-
-// --- Builder Typestates ---
 
 #[derive(Debug)]
 pub struct NoName;
@@ -124,6 +129,7 @@ pub struct LoggerBuilder<N: Sealed = NoName, F: Sealed = NoFile> {
 }
 
 impl<F: Sealed> LoggerBuilder<NoName, F> {
+    /// Sets a name for the logger.
     pub fn name(self, name: impl Into<String>) -> LoggerBuilder<WithName, F> {
         LoggerBuilder {
             name: WithName(name.into()),
@@ -138,9 +144,7 @@ impl LoggerBuilder<WithName, WithFile> {
     #[cfg(not(target_arch = "wasm32"))]
     #[must_use]
     pub const fn max_files(mut self, max: usize) -> Self {
-        {
-            self.config.max_files = max;
-        }
+        self.config.max_files = max;
         self
     }
 
@@ -148,44 +152,63 @@ impl LoggerBuilder<WithName, WithFile> {
     #[cfg(not(target_arch = "wasm32"))]
     #[must_use]
     pub const fn rotation(mut self, rotation: Rotation) -> Self {
-        {
-            self.config.rotation = rotation;
-        }
-        self
-    }
-
-    /// Enables JSON format for logging.
-    #[must_use]
-    pub const fn json(mut self) -> Self {
-        self.config.json = true;
+        self.config.rotation = rotation;
         self
     }
 }
 
 impl<F: Sealed> LoggerBuilder<WithName, F> {
+    /// Sets the logging level.
     #[must_use]
     pub const fn level(mut self, level: LevelFilter) -> Self {
         self.config.level = level;
         self
     }
+
+    /// Sets the environment-based log filter.
     #[must_use]
     pub fn env_filter(mut self, filter: impl Into<String>) -> Self {
         self.config.env_filter = Some(filter.into());
         self
     }
+
+    /// Enables console logging.
     #[must_use]
     pub const fn console(mut self, enabled: bool) -> Self {
         self.config.console = enabled;
         self
     }
 
-    #[cfg(feature = "opentelemetry")]
+    /// Enables ANSI color formatting.
+    #[must_use]
+    pub const fn ansi(mut self, enabled: bool) -> Self {
+        self.config.ansi = enabled;
+        self
+    }
+
+    /// Enables a spans collection.
+    #[must_use]
+    pub const fn spans(mut self, enabled: bool) -> Self {
+        self.config.spans = enabled;
+        self
+    }
+
+    /// Enables JSON output.
+    #[must_use]
+    pub const fn json(mut self, enabled: bool) -> Self {
+        self.config.json = enabled;
+        self
+    }
+
+    /// Enables `OpenTelemetry` tracing.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
     #[must_use]
     pub const fn opentelemetry(mut self, enabled: bool) -> Self {
         self.config.opentelemetry = enabled;
         self
     }
 
+    /// Sets the log file path.
     pub fn path(self, path: impl Into<PathBuf>) -> LoggerBuilder<WithName, WithFile> {
         let mut config = self.config;
         config.path = Some(path.into());
@@ -224,14 +247,16 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
     /// - The `env_filter` string contains invalid syntax.
     ///
     /// ### Example
-    /// ```rust
+    /// ```rust,ignore
     /// use nx_logger::Logger;
     ///
     /// fn main() {
     ///     // Initialize the system. Guards are stored in the _logger variable.
     ///     let _logger = Logger::builder()
     ///         .name("nx-service")
-    ///         .console(true)
+    ///         .level(nx_logger::LevelFilter::DEBUG)
+    ///         .console(false)
+    ///         .opentelemetry(true)
     ///         .init()
     ///         .expect("Failed to setup logging");
     ///
@@ -240,20 +265,23 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
     /// ```
     #[allow(clippy::redundant_clone)]
     pub fn init(self) -> Result<Logger, LoggerError> {
+        if INITIALIZED.set(()).is_err() {
+            return Err(
+                LoggerError::invalid_configuration().with_details("Logger already initialized")
+            );
+        }
+
         validate_config(&self.config, &self.name.0)?;
         let env_filter = build_env_filter(&self.config)?;
 
-        let is_json =
-            std::env::var("LOG_JSON").map_or(self.config.json, |v| v == "1" || v == "true");
-        let use_ansi = std::env::var("LOG_ANSI").map_or(true, |v| v == "1" || v == "true");
-        let include_spans = std::env::var("LOG_SPANS").map_or(true, |v| v == "1" || v == "true");
-        let ignored_fields: Vec<String> = std::env::var("LOG_IGNORE_FIELDS")
-            .unwrap_or_else(|_| "password,details,backtrace,target,code,kind,context".to_owned())
-            .split(',')
-            .map(|s| s.trim().to_owned())
-            .collect();
+        let is_json = get_env_bool("LOG_JSON", self.config.json);
+        let use_ansi = get_env_bool("LOG_ANSI", self.config.ansi);
+        let include_spans = get_env_bool("LOG_SPANS", self.config.spans);
+        let ignored_fields = IgnoreFields::from_env();
 
         let mut layers = Vec::new();
+
+        layers.push(SpanFieldCollector { ignored: ignored_fields.clone() }.boxed());
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut guards = Vec::new();
@@ -265,17 +293,16 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
         }
 
         // 2. OpenTelemetry
-        #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry-otlp"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
         let mut otel_guard = None;
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry-otlp"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
         if self.config.opentelemetry {
             global::set_text_map_propagator(TraceContextPropagator::new());
-            let (guard, log_layer) = init_otlp_pipeline(self.name.0.clone())?;
+            let (guard, log_layer) = init_otlp_pipeline(&self.name.0, ignored_fields.clone())?;
             otel_guard = Some(guard);
 
             let tracer = global::tracer(self.name.0.clone());
-
             let otel_trace_layer = tracing_opentelemetry::layer().with_tracer(tracer);
 
             layers.push(otel_trace_layer.boxed());
@@ -293,12 +320,16 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
             let writer = std::io::stderr;
 
             let layer = if is_json {
-                layer().json().with_span_list(include_spans).with_writer(writer).boxed()
+                layer()
+                    .event_format(JsonFormatEvent::new(ignored_fields.clone(), include_spans))
+                    .with_writer(writer)
+                    .boxed()
             } else {
                 layer()
                     .compact()
                     .with_ansi(use_ansi)
-                    .fmt_fields(FilteredFields { ignored: ignored_fields.clone() })
+                    .fmt_fields(FilteredFields::new(ignored_fields.clone()))
+                    .with_writer(writer)
                     .boxed()
             };
             layers.push(layer);
@@ -321,9 +352,11 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
 
             let file_layer = layer().with_writer(writer).with_ansi(false);
             let boxed = if is_json {
-                file_layer.json().with_span_list(include_spans).boxed()
+                file_layer
+                    .event_format(JsonFormatEvent::new(ignored_fields.clone(), include_spans))
+                    .boxed()
             } else {
-                file_layer.fmt_fields(FilteredFields { ignored: ignored_fields }).boxed()
+                file_layer.fmt_fields(FilteredFields::new(ignored_fields.clone())).boxed()
             };
             layers.push(boxed);
         }
@@ -337,19 +370,18 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
         Ok(Logger {
             #[cfg(not(target_arch = "wasm32"))]
             guards,
-            #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry-otlp"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
             _otel_guard: otel_guard,
         })
     }
 }
 
-/// A handle to the initialized logging system. Holds background worker guards.
 #[must_use = "Dropping the Logger handle will stop background logging threads."]
 #[derive(Debug)]
 pub struct Logger {
     #[cfg(not(target_arch = "wasm32"))]
     guards: Vec<WorkerGuard>,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry-otlp"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "opentelemetry"))]
     _otel_guard: Option<OpenTelemetryGuard>,
 }
 
@@ -362,9 +394,8 @@ impl Logger {
             file_state: std::marker::PhantomData,
         }
     }
-
     pub fn flush(&self) {
-        tracing::debug!("Requesting logger flush");
+        tracing::debug!("Logger buffers flushed");
     }
 }
 
@@ -376,59 +407,6 @@ impl Drop for Logger {
         }
     }
 }
-
-// --- Field Filtering Logic ---
-
-macro_rules! forward_filtered {
-    ($($method:ident($val_ty:ty)),*) => {
-        $(
-            fn $method(&mut self, field: &Field, value: $val_ty) {
-                if !self.ignored.iter().any(|i| i == field.name()) {
-                    self.inner.$method(field, value);
-                }
-            }
-        )*
-    };
-}
-
-#[derive(Debug, Clone)]
-struct FilteredFields {
-    ignored: Vec<String>,
-}
-
-impl<'writer> FormatFields<'writer> for FilteredFields {
-    fn format_fields<R>(&self, mut writer: Writer<'writer>, fields: R) -> std::fmt::Result
-    where
-        R: tracing_subscriber::field::RecordFields,
-    {
-        let visitor = DefaultFields::new().make_visitor(writer.by_ref());
-        let mut filtering_visitor = FilteringVisitor { inner: visitor, ignored: &self.ignored };
-
-        fields.record(&mut filtering_visitor);
-        Ok(())
-    }
-}
-
-struct FilteringVisitor<'a, V> {
-    inner: V,
-    ignored: &'a [String],
-}
-
-impl<V: Visit> Visit for FilteringVisitor<'_, V> {
-    forward_filtered!(
-        record_str(&str),
-        record_f64(f64),
-        record_i64(i64),
-        record_u64(u64),
-        record_i128(i128),
-        record_u128(u128),
-        record_bool(bool),
-        record_debug(&dyn std::fmt::Debug),
-        record_error(&(dyn std::error::Error + 'static))
-    );
-}
-
-// --- Helpers ---
 
 fn validate_config(
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] config: &LoggerConfig,
@@ -457,4 +435,14 @@ fn build_env_filter(config: &LoggerConfig) -> Result<EnvFilter, LoggerError> {
             })
         },
     )
+}
+
+// --- Helpers ---
+
+fn get_env_bool(key: &str, default: bool) -> bool {
+    match std::env::var(key).as_deref() {
+        Ok("1" | "true" | "TRUE") => true,
+        Ok("0" | "false" | "FALSE") => false,
+        _ => default,
+    }
 }

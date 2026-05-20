@@ -112,6 +112,7 @@ impl DpopSigner {
         encode(&self.header, &claims, &self.key).map_err(WebClientError::from)
     }
 }
+
 // --- Helpers ---
 
 /// Generates a cryptographically secure 32-byte Ed25519 signing key.

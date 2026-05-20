@@ -46,6 +46,7 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/ingress-component/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/web-client/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lockbox/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/logger/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/tooling/swagger/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.idea/httpRequests" />
       <excludeFolder url="file://$MODULE_DIR$/.spin" />

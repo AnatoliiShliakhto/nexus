@@ -29,7 +29,7 @@ hyper-util.workspace = true
 moka ={ workspace = true,features = ["future", "atomic64"] }
 nx-config.workspace = true
 nx-error = { workspace = true, features = ["json"] }
-nx-logger = { workspace = true, features = ["opentelemetry-otlp"] }
+nx-logger = { workspace = true, features = ["opentelemetry"] }
 opentelemetry-http.workspace = true
 opentelemetry.workspace = true
 postcard.workspace = true

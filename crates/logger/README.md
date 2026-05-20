@@ -1,276 +1,134 @@
 # Nexus Logger
 
-A centralized logging and observability crate for Nexus services and clients.
+A centralized logging and observability crate for the Nexus ecosystem.
 
-It provides a unified way to configure:
-- console logging
-- rotating file logging
-- non-blocking output
-- environment-based filtering
-- optional OpenTelemetry integration
-- optional profiling support
-- field redaction for sensitive values
+Designed for high-throughput, low-latency distributed systems, `nx-logger` provides a unified, zero-cost hot path for structured logging. It seamlessly integrates non-blocking I/O, environment-based filtering, field redaction, and optional OpenTelemetry tracing, all while maintaining WASM-native compatibility.
 
 ## Features
 
-- **Typestate builder** for safer initialization
-- **Non-blocking I/O** via background worker guards
-- **Console and file layers**
-- **Daily/hourly/etc. log rotation**
-- **JSON or compact human-readable output**
-- **Environment-driven overrides**
-- **Field filtering/redaction**
-- **WASM-aware compilation**
-- **Optional OpenTelemetry tracing**
-- **Optional tokio-console subscriber profiling**
+* **Zero-Cost Hot Path:** Stack-allocated JSON formatting using `SmallVec` and `SmolStr` to eliminate heap allocations during standard logging.
+* **Non-Blocking I/O:** Dedicated background worker guards ensure logging never blocks your async tokio runtime.
+* **Typestate Builder:** Compile-time validation prevents invalid logger configurations.
+* **Advanced Field Redaction:** Automatically suppress sensitive data (passwords, tokens, secrets) with zero runtime overhead.
+* **Wasm-Native:** Compiles cleanly to `wasm32-unknown-unknown` and `wasm32-wasi`.
+* **Telemetry & Profiling:** Out-of-the-box support for `opentelemetry-otlp` and `tokio-console`.
+
+## Performance & Zero-Cost Architecture
+
+`nx-logger` is engineered to handle millions of logs per second without creating GC pauses or lock contention in highly concurrent environments (like Axum/Tokio).
+
+### Heap Profiling (DHAT)
+
+I continuously profile the hot path using DHAT. When logging static strings and primitives:
+
+* **0** Heap Allocations (`malloc`) per log event.
+* All JSON serialization and field filtering happen directly on the stack.
+
+### Concurrent Scaling (Criterion)
+
+Async benchmarks demonstrate linear scalability with Tokio workers. Because the formatter is lock-free, adding more concurrent threads actually decreases the time spent per log.
+
+| Concurrency | Total Logs | Batch Time | Time per Log | Scaling Efficiency |
+|-------------|------------|------------|--------------|--------------------|
+| 1 Worker    | 10         | 2.92 µs    | ~290 ns      | Base Speed         |
+| 4 Workers   | 40         | 7.54 µs    | ~188 ns      | +35%               |
+| 8 Workers   | 80         | 11.09 µs   | ~138 ns      | +52%               |
+
+*Metrics captured on an 8-core CPU. Reproduce locally via `cargo bench -p nx-logger`.*
 
 ## Installation
 
-Add it as a workspace dependency from your monorepo:
-
-```rust,toml 
+Add it to your project:
+```toml
 [dependencies] 
-nx-logger.workspace = true
+nx-logger = "0.1.0" # Replace it with actual version
 ```
 
-If you need OpenTelemetry support:
+### Feature Flags
+ 
+* `opentelemetry`: Enables exporting spans to OpenTelemetry collectors.
+* `profiling`: Activates a console subscriber for tracing/profiling Tokio tasks.
 
-```rust,toml 
-[dependencies] 
-nx-logger = { workspace = true, features = ["opentelemetry-otpl"] }
-```
+## Quick Start
 
-If you need profiling support:
+The logger uses a typestate builder pattern. The returned `Logger` handle must be kept alive for the lifetime of the application. Dropping it gracefully flushes buffers and shuts down the background I/O threads.
 
-```rust,toml 
-[dependencies] 
-nx-logger = { workspace = true, features = ["profiling"] }
-```
+```rust
+use nx_logger::{LevelFilter, Logger};
 
-## Quick start
-
-```rust,ignore
-rust use nx_logger::{LevelFilter, Logger};
 fn main() { 
+    // Initialization returns a worker guard. 
+    // Bind it to a variable to keep background threads alive!
     let _logger = Logger::builder() 
         .name("nx-gateway") 
-        .console(true) 
+        .console(true)
+        .json(true)
         .level(LevelFilter::INFO) 
         .init() 
-        .expect("failed to initialize logger");
+        .expect("Failed to initialize logger");
     
-    tracing::info!("logger initialized");
+    tracing::info!(
+        service = "gateway",
+        "Logger successfully initialized and ready."
+    );
 }
 ```
-
-
-## Builder overview
-
-The logger uses a typestate builder to prevent invalid configuration at compile time.
-
-Typical flow:
-
-1. create a builder
-2. set a service name
-3. optionally configure console/file/format options
-4. call `init()`
-
-Example with file logging:
-
-```rust,ignore
-use nx_logger::{LevelFilter, Logger, Rotation};
-
-fn main() { 
-    let _logger = Logger::builder() 
-        .name("nx-console") 
-        .console(true) 
-        .path("logs") 
-        .rotation(Rotation::DAILY) 
-        .max_files(10) 
-        .level(LevelFilter::DEBUG) 
-        .init() 
-        .expect("failed to initialize logger"); 
-}
-```
-
 
 ## Configuration
 
-The builder provides defaults, but you can override behavior with environment variables.
+### File Output & Rotation (Non-WASM)
 
-### Supported environment variables
+File logging is processed asynchronously with built-in rotation rules.
 
-- `LOG_JSON`  
-  Enable JSON output when set to `true` or `1`.
-
-- `LOG_ANSI`  
-  Enable ANSI colors in console output when set to `true` or `1`.
-
-- `LOG_SPANS`  
-  Include active span lists in JSON logs when set to `true` or `1`.
-
-- `LOG_IGNORE_FIELDS`  
-  Comma-separated list of fields to redact from formatted output.  
-  Example:
-  ```bash
-  LOG_IGNORE_FIELDS=password,token,secret
-  ```
-
-- `RUST_LOG`  
-  Standard tracing directives.  
-  Example:
-  ```bash
-  RUST_LOG=info,nx_gateway=debug
-  ```
-  
-- `OTEL_EXPORTER_OTLP_ENDPOINT`
-  OpenTelemetry endpoint
-  Example: 
-  ```bash
-  OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
-  ```
-
-- `OTEL_SERVICE_NAME`
-  OpenTelemetry service name
-  Example:
-  ```bash
-  OTEL_SERVICE_NAME="http://localhost:4318"
-  ```
-
-- `OTEL_RESOURCE_ATTRIBUTES`
-  OpenTelemetry 
-  Example:
-  ```bash
-  OTEL_RESOURCE_ATTRIBUTES="http://localhost:4318"
-  ```
-
-
-## Console output
-
-Console logging can be enabled or disabled independently.
-
-Example:
-
-```rust,ignore
-let _logger = Logger::builder() 
-    .name("nx-service") 
-    .console(true) 
-    .init() 
-    .expect("failed to initialize logger");
-```
-
-
-## File output
-
-On non-WASM targets, file logging is supported with rotation.
-
-Example:
-
-```rust,ignore
+```rust
 use nx_logger::{LevelFilter, Logger, Rotation};
 
-let _logger = Logger::builder() 
-    .name("nx-service") 
-    .console(true) 
-    .path("logs") 
-    .rotation(Rotation::DAILY) 
-    .max_files(30) 
-    .level(LevelFilter::INFO) 
-    .init() 
-    .expect("failed to initialize logger");
-```
-
-
-### Notes
-
-- Log files are written asynchronously.
-- Keep the returned `Logger` value alive for the whole program lifetime.
-- Dropping the logger flushes buffers and stops worker threads gracefully.
-
-## OpenTelemetry
-
-If the feature is enabled, the crate can attach an OpenTelemetry tracing layer.
-
-```toml
-[dependencies] 
-nx-logger = { workspace = true, features = ["opentelemetry-otlp"] }
-```
-
-Then configure it from your application bootstrap as needed.
-
-## Profiling support
-
-If the profiling feature is enabled on supported targets, the crate can activate a console subscriber for tracing/profiling workflows.
-
-```toml
-[dependencies] 
-nx-logger = { workspace = true, features = ["profiling"] }
-```
-
-
-## WASM support
-
-The crate is designed to compile cleanly for WASM targets.
-
-Behavior differences:
-- file logging is disabled on `wasm32`
-- only console-style logging paths are available
-- platform-specific appender and worker guard logic is conditionally compiled
-
-## Error handling
-
-Initialization returns `Result<Logger, LoggerError>`.
-
-Common failure reasons:
-- empty or invalid logger name
-- invalid configuration
-- invalid `env_filter`
-- file appender initialization failure
-- global subscriber already initialized
-
-## Logger lifetime
-
-The returned `Logger` handle must be kept alive.
-
-If the handle is dropped too early, background logging may stop before all messages are flushed.
-
-## Field redaction
-
-The logger can suppress selected fields in formatted output.
-
-This is useful for values like:
-- `password`
-- `token`
-- `secret`
-- `details`
-- `backtrace`
-
-Default ignored fields are configured by the crate, and can be overridden with `LOG_IGNORE_FIELDS`.
-
-## Example in a service
-
-```rust,ignore
-use nx_logger::{LevelFilter, Logger};
-
-pub fn init_logging() -> Logger { 
-    Logger::builder() 
-        .name("nx-gateway") 
-        .console(true) 
-        .level(LevelFilter::INFO) 
-        .init() 
-        .expect("failed to initialize logger") 
+fn main() {
+    let _logger = Logger::builder()
+        .name("nx-service")
+        .console(false)
+        .path("/var/log/nexus")
+        .rotation(Rotation::DAILY)
+        .max_files(30)
+        .level(LevelFilter::DEBUG)
+        .init()
+        .unwrap();
 }
 ```
 
+### Environment Overrides
 
-## Recommended usage
+While the builder sets defaults, behavior can be dynamically overridden without recompilation using environment variables:
 
-For most services:
+| Variable          | Description                            | Example                 |
+|-------------------|----------------------------------------|-------------------------|
+| RUST_LOG          | Standard tracing directives.           | "info,nx_gateway=debug" |
+| LOG_JSON          | Force JSON formatting (true/1).        | 1                       |
+| LOG_ANSI          | Enable ANSI colors for console output. | true                    |
+| LOG_SPANS         | Include active tracing spans in JSON.  | true                    |
+| LOG_IGNORE_FIELDS | Comma-separated fields to redact.      | "password,token,secret" |
 
-- use `LevelFilter::INFO` in production
-- enable `console(true)` during development
-- use file logging for long-running services
-- keep the returned `Logger` in `main()`
+### OpenTelemetry Variables:
+
+* `OTEL_EXPORTER_OTLP_ENDPOINT`="http://localhost:4318"
+* `OTEL_SERVICE_NAME`="nx-gateway"
+* `OTEL_RESOURCE_ATTRIBUTES`="deployment.environment=production"
+
+## Field Redaction (Security-First)
+
+`nx-logger` includes a zero-cost field redaction layer. By default, it suppresses sensitive keys to prevent credentials from leaking into your aggregators (Datadog, ELK, etc.).
+
+Default ignored fields include: `password`, `token`, `secret`, `authorization`. You can override this list via the `LOG_IGNORE_FIELDS` environment variable.
+
+## WebAssembly (WASM) Support
+
+The crate is designed to compile cleanly for WASM targets (`wasm32-unknown-unknown` and `WASI P2`).
+
+**Behavior on WASM:**
+
+* File logging features are automatically disabled.
+* Platform-specific appender and worker guard logic is conditionally compiled out.
+* Console-style logging routes safely to browser/WASI host stdout.
 
 ## License
 

@@ -5,8 +5,9 @@ use nx_console::error::ConsoleError;
 use nx_error::ErrorMetadataExt;
 use nx_logger::{Logger, Rotation};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
-fn main() {
+fn main() -> ExitCode {
     let log_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("nexus")
@@ -24,6 +25,8 @@ fn main() {
 
     if let Err(e) = nx_console::run() {
         tracing::error!("\n\n{}", e.report());
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
+
+    ExitCode::SUCCESS
 }

@@ -1,6 +1,6 @@
 # Nexus HTTP
 
-A  Wasm-native toolkit designed for building robust, observable HTTP services
+A Wasm-native toolkit designed for building robust, observable HTTP services
 within the Nexus ecosystem.
 `nx-http` serves as the foundation for modern Wasm development, consolidating telemetry,
 standardized error handling, and runtime-specific integration logic into a single crate optimized

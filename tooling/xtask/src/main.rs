@@ -16,8 +16,9 @@ use crate::error::AppError;
 use clap::Parser;
 use nx_error::ErrorMetadataExt;
 use nx_logger::Logger;
+use std::process::ExitCode;
 
-fn main() {
+fn main() -> ExitCode {
     let _logger = Logger::builder()
         .name(env!("CARGO_PKG_NAME"))
         .console(true)
@@ -26,8 +27,9 @@ fn main() {
 
     if let Err(e) = run() {
         tracing::error!("\n\n{}", e.report());
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
+    ExitCode::SUCCESS
 }
 
 fn run() -> Result<(), AppError> {

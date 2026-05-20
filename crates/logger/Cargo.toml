@@ -1,25 +1,28 @@
 [package]
 name = "nx-logger"
-description = "Logging infrastructure for a project using tracing and tracing-subscriber with file appender support"
-keywords = ["logging", "tracing", "infrastructure", "appender", "subscriber"]
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-authors.workspace = true
+description = "A centralized, non-blocking observability utility for the Nexus framework featuring typestate configuration, automated field redaction, and optional OpenTelemetry (OTLP) tracing"
+readme = "README.md"
 repository.workspace = true
-readme.workspace = true
 license.workspace = true
+keywords = ["logging", "tracing", "opentelemetry", "otlp", "observability"]
+categories = ["development-tools::debugging", "api-bindings"]
+publish = true
 
 [features]
 default = []
 profiling = ["console-subscriber"]
-opentelemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry"]
-opentelemetry-otlp = [
-    "opentelemetry",
+opentelemetry = [
+    "dep:opentelemetry",
+    "dep:tracing-opentelemetry",
     "dep:opentelemetry-otlp",
     "opentelemetry-otlp/trace",
     "opentelemetry-otlp/logs",
     "opentelemetry-otlp/grpc-tonic",
+    "opentelemetry-otlp/zstd-tonic",
     "dep:opentelemetry_sdk",
     "opentelemetry_sdk/trace",
     "opentelemetry_sdk/logs",
@@ -31,22 +34,36 @@ opentelemetry-otlp = [
 nx-error = { workspace = true, features = ["json"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "ansi", "json"] }
 tracing.workspace = true
+serde.workspace = true
+fxhash.workspace = true
+smol_str.workspace = true
+smallvec.workspace = true
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-console-subscriber = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-appender-tracing = { workspace = true, optional = true }
-tracing-appender.workspace = true
 tracing-opentelemetry = { workspace = true, optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+console-subscriber = { workspace = true, optional = true }
+tracing-appender.workspace = true
+
 [dev-dependencies]
+criterion = { workspace = true, features = ["async_tokio", "html_reports"] }
+dhat.workspace = true
+proptest.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lib]
 name = "nx_logger"
 path = "src/lib.rs"
+
+[[bench]]
+name = "logger"
+harness = false
 
 [lints]
 workspace = true

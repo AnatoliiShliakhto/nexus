@@ -26,11 +26,11 @@ pub enum LoggerError {
     Subscriber,
 
     /// Failure while connecting to or configuring the `OpenTelemetry` collector.
-    #[cfg(feature = "opentelemetry-otlp")]
+    #[cfg(feature = "opentelemetry")]
     #[error(
         message = "Telemetry exporter initialization failed",
         source = opentelemetry_otlp::ExporterBuildError,
-        code = "LOGGER_TELEMETRY_ERROR"
+        code = "LOGGER_OPENTELEMETRY_ERROR"
     )]
     OpenTelemetry,
 }

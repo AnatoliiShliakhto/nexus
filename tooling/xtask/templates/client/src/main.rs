@@ -6,9 +6,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer, fmt};
 use nx_error::ErrorMetadataExt;
+use std::process::ExitCode;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> ExitCode {
     let mut layers = Vec::new();
 
     #[cfg(all(feature = "profiling", tokio_unstable))]
@@ -27,6 +28,8 @@ async fn main() {
 
     if let Err(e) = {{ name | snake_case }}::run().await {
         tracing::error!("\n\n{}", e.report());
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
+
+    ExitCode::SUCCESS
 }

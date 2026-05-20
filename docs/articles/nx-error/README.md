@@ -7,14 +7,11 @@ design.
 
 I didn’t.
 
-The first crate I put into **[NEXUS](https://github.com/AnatoliiShliakhto/nexus)** was an error-handling crate: 
-[`nx-error`](https://github.com/AnatoliiShliakhto/nexus/tree/dev/crates/error)
-(and its companion [`nx-error-macros`](https://github.com/AnatoliiShliakhto/nexus/tree/dev/crates/error-macros)).
+The first crate I put into **[NEXUS](https://github.com/AnatoliiShliakhto/nexus)** was an error-handling crate: [nx-error](https://crates.io/crates/nx-error).
 
 That choice was not aesthetic. It was architectural.
 
-NEXUS is built around service boundaries, typed contracts, and execution environments where failures need to be
-represented consistently across layers.
+NEXUS is built around service boundaries, typed contracts, and execution environments where failures need to be represented consistently across layers.
 
 ```mermaid
 graph TD
@@ -25,16 +22,13 @@ graph TD
     Hub --> UX[Frontend: i18n Key]
 ```
 
-This post is the first in a series about the technical foundations of NEXUS. It explains why I built `nx-error`, what
-problems it was designed to solve, and which trade-offs mattered most: typed metadata, context separation, predictable
-propagation, and WASM-conscious ergonomics.
+This post is the first in a series about the technical foundations of NEXUS. It explains why I built `nx-error`, what problems it was designed to solve, and which trade-offs mattered most: typed metadata, context separation, predictable propagation, and WASM-conscious ergonomics.
 
 ---
 
 ## A quick look at the API
 
-The surface API is intentionally small. The goal was to make domain errors easy to define, but also useful to downstream
-systems: HTTP layers, logs, metrics, dashboards, and operators.
+The surface API is intentionally small. The goal was to make domain errors easy to define, but also useful to downstream systems: HTTP layers, logs, metrics, dashboards, and operators.
 
 ```rust
 use nx_error::prelude::*;
@@ -630,7 +624,11 @@ observable, and avoid paying for complexity in places where the runtime does not
 In the next post, I’ll cover another foundational part of NEXUS and show how the same constraints shaped its design.
 
 ## Resources
-This is just the beginning. In the next part, I'll dive into how NEXUS handles distributed state. Follow the repository to stay tuned.
 
-* **Main Repository:** [NEXUS](https://github.com/AnatoliiShliakhto/nexus)
-* **Crates:** [`nx-error`](https://github.com/AnatoliiShliakhto/nexus/tree/dev/crates/error) | [`nx-error-macros`](https://github.com/AnatoliiShliakhto/nexus/tree/dev/crates/error-macros)
+NEXUS Architecture Series: [Read the full series index](../README.md)
+
+Next Article: [Building NEXUS (Part 2): Observability as a Contract](../nx-logger/README.md)
+
+Main Repository: [NEXUS Source Code](https://github.com/AnatoliiShliakhto/nexus)
+
+Crate: [nx-error](https://crates.io/crates/nx-error)

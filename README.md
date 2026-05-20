@@ -27,8 +27,17 @@ Nexus is not "WASM-only". It is a bridge for enterprise migration:
 * **Unified Ingress:** A single Axum-based gateway manages routing, security, and telemetry for both layers
   transparently.
 
-## [Documentation](docs/articles/README.md)
-* [Building NEXUS (Part 1): Errors as Infrastructure](docs/articles/nx-error/README.md) — A deep dive into the architectural foundations of Nexus.
+## 📚 [Documentation](docs/articles/README.md)
+
+A deep-dive series of engineering articles exploring the internal design, philosophy, and technical decisions behind the
+NEXUS ecosystem.
+
+* 🛠️ **[Building NEXUS (Part 1): Errors as Infrastructure](docs/articles/nx-error/README.md)** — An architectural
+  breakdown of why the error-handling system was laid down before any functional runtime logic, exploring
+  metadata-centric failure contracts and cross-platform WASM boundaries.
+* 🔍 **[Building NEXUS (Part 2): Observability as a Contract](docs/articles/nx-logger/README.md)** — A deep dive into
+  building a zero-allocation, schema-enforced logging subsystem designed to eradicate data ingestion drops and bridge
+  the gap between sandboxed WebAssembly guests and native microservices.
 
 ---
 
@@ -38,31 +47,31 @@ Nexus synthesizes the best of the Rust ecosystem with frontier WASM standards.
 
 ```mermaid
 graph TB
-  Client([Client]) -- DPoP / JWT --> Gateway[Axum API Gateway]
+    Client([Client]) -- DPoP / JWT --> Gateway[Axum API Gateway]
 
-  subgraph Runtime [Nexus Hybrid Runtime]
-    direction LR
-    subgraph WASM_Layer [High-Density WASM]
-      Spin[Fermyon Spin / WASI P2]
-      Logic[Stateless Business Logic]
+    subgraph Runtime [Nexus Hybrid Runtime]
+        direction LR
+        subgraph WASM_Layer [High-Density WASM]
+            Spin[Fermyon Spin / WASI P2]
+            Logic[Stateless Business Logic]
+        end
+
+        subgraph Legacy_Layer [Native Containers]
+            Docker[Docker / OCI Services]
+            Services[Java / Python / Go]
+        end
     end
-    
-    subgraph Legacy_Layer [Native Containers]
-      Docker[Docker / OCI Services]
-      Services[Java / Python / Go]
+
+    Gateway -- Wasm RPC --> WASM_Layer
+    Gateway -- Proxy --> Legacy_Layer
+
+    subgraph Infrastructure [Hardened Core]
+        DB[(SurrealDB)]
+        Vault[(HashiCorp Vault)]
+        OTel[OpenTelemetry Mesh]
     end
-  end
 
-  Gateway -- Wasm RPC --> WASM_Layer
-  Gateway -- Proxy --> Legacy_Layer
-
-  subgraph Infrastructure [Hardened Core]
-    DB[(SurrealDB)]
-    Vault[(HashiCorp Vault)]
-    OTel[OpenTelemetry Mesh]
-  end
-
-  Runtime -.-> Infrastructure
+    Runtime -.-> Infrastructure
 ```
 
 ---
@@ -158,5 +167,4 @@ cargo serve
 
 ## 📄 License
 
-Dual-licensed under [MIT](LICENSE-MIT) and
-the [Apache 2.0](LICENSE-APACHE).
+Dual-licensed under [MIT](LICENSE-MIT) and the [Apache 2.0](LICENSE-APACHE).

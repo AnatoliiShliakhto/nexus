@@ -1,8 +1,8 @@
+use crate::error::ErrorExt;
 use nx_error::prelude::*;
 use spin_sdk::variables;
 use std::borrow::Cow;
 use url::{ParseError, Url};
-use crate::error::ErrorExt;
 
 #[error]
 pub enum SpinEnvironmentError {
