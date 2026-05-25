@@ -168,6 +168,7 @@ pub(crate) async fn handle_tower_error(err: BoxError) -> impl IntoResponse {
 impl GatewayError {
     pub(crate) fn emit(&self) {
         tracing::error!(
+            status = self.status().as_u16(),
             code = %self.code(),
             details = %self.details().as_deref().unwrap_or(""),
             "{}", self.message(),

@@ -26,10 +26,10 @@ fxhash.workspace = true
 http-body-util.workspace = true
 http.workspace = true
 hyper-util.workspace = true
-moka ={ workspace = true,features = ["future", "atomic64"] }
+moka = { workspace = true,features = ["future", "atomic64"] }
 nx-config.workspace = true
 nx-error = { workspace = true, features = ["json"] }
-nx-logger = { workspace = true, features = ["opentelemetry"] }
+nx-logger = { workspace = true, features = ["opentelemetry", "metrics"] }
 opentelemetry-http.workspace = true
 opentelemetry.workspace = true
 postcard.workspace = true

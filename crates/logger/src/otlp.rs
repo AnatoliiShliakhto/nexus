@@ -2,10 +2,15 @@ use crate::error::LoggerError;
 use crate::utils::{FieldValue, FieldVisitor, IgnoreFields, SpanAttributes};
 use opentelemetry::logs::{AnyValue, LogRecord, Logger, LoggerProvider, Severity};
 use opentelemetry::{Key, KeyValue, global};
+#[cfg(feature = "metrics")]
+use opentelemetry_otlp::MetricExporter;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::{SdkLogger, SdkLoggerProvider};
+#[cfg(feature = "metrics")]
+use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use smallvec::SmallVec;
+use std::time::Duration;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
@@ -15,13 +20,17 @@ const MAX_SPAN_ATTRIBUTES: usize = 16;
 
 #[derive(Debug)]
 pub(crate) struct OpenTelemetryGuard {
-    tracer_provider: SdkTracerProvider,
-    logger_provider: SdkLoggerProvider,
+    tracer: SdkTracerProvider,
+    logger: SdkLoggerProvider,
+    #[cfg(feature = "metrics")]
+    metrics: SdkMeterProvider,
 }
 impl Drop for OpenTelemetryGuard {
     fn drop(&mut self) {
-        let _ = self.tracer_provider.shutdown();
-        let _ = self.logger_provider.shutdown();
+        #[cfg(feature = "metrics")]
+        let _ = self.metrics.shutdown();
+        let _ = self.logger.shutdown();
+        let _ = self.tracer.shutdown();
     }
 }
 
@@ -65,7 +74,7 @@ where
                     break;
                 }
 
-                attrs.push((Key::new("span.name"), AnyValue::from(span.name().to_owned())));
+                attrs.push((Key::new("span.name"), AnyValue::from(span.name())));
                 attr_count += 1;
 
                 if let Some(a) = span.extensions().get::<SpanAttributes>() {
@@ -122,6 +131,7 @@ pub(crate) fn init_otlp_pipeline(
         .with_attributes([KeyValue::new("service.name", service_name.to_owned())])
         .build();
 
+    // 1. Init tracer provider
     let tp = SdkTracerProvider::builder()
         .with_batch_exporter(
             opentelemetry_otlp::SpanExporter::builder()
@@ -134,6 +144,7 @@ pub(crate) fn init_otlp_pipeline(
 
     global::set_tracer_provider(tp.clone());
 
+    // 2. Init logger provider
     let lp = SdkLoggerProvider::builder()
         .with_batch_exporter(
             opentelemetry_otlp::LogExporter::builder()
@@ -141,11 +152,34 @@ pub(crate) fn init_otlp_pipeline(
                 .build()
                 .map_err(|e| LoggerError::invalid_configuration().with_details(e.to_string()))?,
         )
-        .with_resource(res)
+        .with_resource(res.clone())
         .build();
 
+    // 3. Init metrics provider
+    #[cfg(feature = "metrics")]
+    let mp = {
+        let exporter = MetricExporter::builder()
+            .with_tonic()
+            .build()
+            .map_err(|e| LoggerError::invalid_configuration().with_details(e.to_string()))?;
+
+        let reader =
+            PeriodicReader::builder(exporter).with_interval(Duration::from_secs(30)).build();
+
+        let mp = SdkMeterProvider::builder().with_resource(res).with_reader(reader).build();
+
+        global::set_meter_provider(mp.clone());
+
+        mp
+    };
+
     Ok((
-        OpenTelemetryGuard { tracer_provider: tp, logger_provider: lp.clone() },
+        OpenTelemetryGuard {
+            tracer: tp,
+            logger: lp.clone(),
+            #[cfg(feature = "metrics")]
+            metrics: mp,
+        },
         FilteredOtlpLayer::new(&lp, service_name, ignored),
     ))
 }

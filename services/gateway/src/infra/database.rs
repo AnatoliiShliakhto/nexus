@@ -1,4 +1,5 @@
 use crate::core::config::GatewayConfig;
+use crate::infra::telemetry::METRICS;
 use chrono::Duration;
 use futures::{Stream, StreamExt};
 use jsonwebtoken::{EncodingKey, encode};
@@ -94,6 +95,7 @@ pub enum DatabaseError {
 impl DatabaseError {
     pub(crate) fn emit(&self) {
         tracing::error!(
+            status = self.status().as_u16(),
             code = %self.code(),
             details = %self.details().as_deref().unwrap_or(""),
             "{}", self.message(),
@@ -152,10 +154,10 @@ impl Database {
             (config.get().security.identity.session.access_token_ttl_sec + 30) as i64,
         );
 
-        let vault = config.fetch_vault("nexus/database").await?;
-        let username = vault.secret::<String>("database_user")?;
-        let password = vault.secret::<String>("database_pass")?;
-        let private_key = vault.secret::<String>("database_private_key")?;
+        let config = config.fetch_vault("nexus/database").await?;
+        let username = config.secret::<String>("database_user")?;
+        let password = config.secret::<String>("database_pass")?;
+        let private_key = config.secret::<String>("database_private_key")?;
         let token_key = EncodingKey::from_ed_pem(private_key.as_bytes()).map_err(|e| {
             DatabaseError::internal()
                 .with_message("Failed to initialize token signing key")
@@ -194,7 +196,7 @@ impl Database {
             .await
             .map_err(|e| DatabaseError::connection().with_details(e.to_string()))?;
 
-        prerequisites(&db, &vault).await?;
+        prerequisites(&db, &config).await?;
 
         let version = db.version().await.map_or_else(|_| "unknown".to_owned(), |v| v.to_string());
         tracing::info!(namespace = %db_cfg.namespace, database = %db_cfg.name, %version, "SurrealDB connection established");
@@ -273,17 +275,30 @@ impl<'a> QueryBuilder<'a> {
         self
     }
 
-    #[tracing::instrument(skip(self), name = "db_execute", fields(sql = %truncate_sql(self.sql, 100)))]
+    #[tracing::instrument(skip(self), name = "db_execute", fields(sql = truncate_sql(self.sql, 100)))]
     pub(crate) async fn execute(self) -> Result<QueryResult, DatabaseError> {
-        let response = self.inner.await?;
+        let start = std::time::Instant::now();
 
-        let inner =
-            response.check().map_err(|e| DatabaseError::execution().with_details(e.to_string()))?;
+        let response = self.inner.await.map_err(|e| {
+            METRICS.record_db_error("connection");
+            let err = DatabaseError::from(e);
+            err.emit();
+            err
+        })?;
+
+        let inner = response.check().map_err(|e| {
+            METRICS.record_db_error("statement");
+            let err = DatabaseError::from(e);
+            err.emit();
+            err
+        })?;
+
+        METRICS.record_db_query_duration(start.elapsed().as_secs_f64());
 
         Ok(QueryResult { inner })
     }
 
-    #[tracing::instrument(skip(self), name = "db_subscribe", fields(sql = %truncate_sql(self.sql, 100)))]
+    #[tracing::instrument(skip(self), name = "db_subscribe", fields(sql = truncate_sql(self.sql, 100)))]
     pub(crate) async fn subscribe<T>(
         self,
     ) -> Result<impl Stream<Item = Result<Notification<T>, DatabaseError>>, DatabaseError>
@@ -329,6 +344,10 @@ async fn prerequisites(db: &Surreal<Any>, cfg: &GatewayConfig) -> Result<(), Dat
     Ok(())
 }
 
+#[inline]
 fn truncate_sql(sql: &str, max_len: usize) -> &str {
-    if sql.len() > max_len { &sql[..max_len] } else { sql }
+    match sql.char_indices().nth(max_len) {
+        Some((idx, _)) => &sql[..idx],
+        None => sql,
+    }
 }

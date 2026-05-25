@@ -9,9 +9,10 @@ Designed for high-throughput, low-latency distributed systems, `nx-logger` provi
 * **Zero-Cost Hot Path:** Stack-allocated JSON formatting using `SmallVec` and `SmolStr` to eliminate heap allocations during standard logging.
 * **Non-Blocking I/O:** Dedicated background worker guards ensure logging never blocks your async tokio runtime.
 * **Typestate Builder:** Compile-time validation prevents invalid logger configurations.
-* **Advanced Field Redaction:** Automatically suppress sensitive data (passwords, tokens, secrets) with zero runtime overhead.
+* **Advanced Field Redaction:** Automatically suppresses sensitive data (passwords, tokens, secrets) with zero runtime overhead.
 * **Wasm-Native:** Compiles cleanly to `wasm32-unknown-unknown` and `wasm32-wasi`.
 * **Telemetry & Profiling:** Out-of-the-box support for `opentelemetry-otlp` and `tokio-console`.
+* **Telemetry, Metrics & Profiling:** Out-of-the-box support for the complete OpenTelemetry trinity (Traces, Logs, and Metrics via `opentelemetry-otlp`) and task profiling via `tokio-console`.
 
 ## Performance & Zero-Cost Architecture
 
@@ -45,9 +46,12 @@ nx-logger = "0.1.0" # Replace it with actual version
 ```
 
 ### Feature Flags
- 
-* `opentelemetry`: Enables exporting spans to OpenTelemetry collectors.
-* `profiling`: Activates a console subscriber for tracing/profiling Tokio tasks.
+
+### Feature Flags
+
+* `opentelemetry`: Enables exporting tracing spans and structural logs to OpenTelemetry collectors (via gRPC/Tonic).
+* `metrics`: Activates the OpenTelemetry `MeterProvider` and a periodic metric reader, automatically enabling the base `opentelemetry` feature.
+* `profiling`: Activates a console subscriber for tracing/profiling Tokio tasks via `tokio-console`.
 
 ## Quick Start
 
@@ -111,8 +115,10 @@ While the builder sets defaults, behavior can be dynamically overridden without 
 ### OpenTelemetry Variables:
 
 * `OTEL_EXPORTER_OTLP_ENDPOINT`="http://localhost:4318"
+* `OTEL_EXPORTER_OTLP_INSECURE`="true"
 * `OTEL_SERVICE_NAME`="nx-gateway"
 * `OTEL_RESOURCE_ATTRIBUTES`="deployment.environment=production"
+* `OTEL_METRIC_EXPORT_INTERVAL`="30000" *(Export interval in milliseconds)*
 
 ## Field Redaction (Security-First)
 
@@ -129,6 +135,7 @@ The crate is designed to compile cleanly for WASM targets (`wasm32-unknown-unkno
 * File logging features are automatically disabled.
 * Platform-specific appender and worker guard logic is conditionally compiled out.
 * Console-style logging routes safely to browser/WASI host stdout.
+* **OTLP Metrics & Tracing:** The `opentelemetry` and `metrics` features are intended for native targets (`not(target_arch = "wasm32")`) due to their reliance on background threads and gRPC network stacks (`tonic`).
 
 ## License
 

@@ -1,4 +1,4 @@
-#![allow(unused_crate_dependencies)]
+#![allow(unused_crate_dependencies, clippy::panic)]
 
 use nx_logger::Logger;
 use std::fs;
@@ -39,7 +39,9 @@ fn test_file_logging_and_field_redaction() {
     let lines: Vec<serde_json::Value> = log_content
         .lines()
         .filter(|line| !line.is_empty())
-        .map(|line| serde_json::from_str(line).expect(&format!("Invalid JSON line: {line}")))
+        .map(|line| {
+            serde_json::from_str(line).unwrap_or_else(|_| panic!("Invalid JSON line: {line}"))
+        })
         .collect();
 
     let parsed_log = lines.last().expect("No logs found");

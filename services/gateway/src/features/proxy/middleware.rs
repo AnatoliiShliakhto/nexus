@@ -1,5 +1,6 @@
 use super::request::ProxyRequestExt;
 use crate::error::GatewayError;
+use crate::infra::telemetry::METRICS;
 use crate::server::extractors::identity::IdentityContext;
 use crate::server::state::GatewayState;
 use axum::response::IntoResponse;
@@ -13,6 +14,7 @@ use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
 use smol_str::SmolStr;
 use std::task::{Context, Poll};
+use std::time::Instant;
 use tower::{Layer, Service};
 use url::Url;
 
@@ -94,6 +96,8 @@ async fn proxy_request(
     protected: bool,
     req: Request<Body>,
 ) -> Result<Response<Body>, GatewayError> {
+    let start = Instant::now();
+
     let proxy_req = if protected {
         let ident = IdentityContext::from_request(&req);
         let session = state.sessions.validate_session(&ident).await?;
@@ -113,14 +117,16 @@ async fn proxy_request(
         req.proxy_to(&target).build()?
     };
 
-    let response = state
-        .client
-        .request(proxy_req)
-        .await
-        .map_err(|e| GatewayError::dispatch_failed().with_details(e.to_string()))?;
+    let res = state.client.request(proxy_req).await;
+
+    let response = res.map_err(|e| {
+        METRICS.record_proxy_error("dispatch_failed");
+        GatewayError::dispatch_failed().with_details(e.to_string())
+    })?;
+
+    METRICS.record_proxy_request(response.status().as_u16(), start.elapsed().as_secs_f64());
 
     let (parts, body) = response.into_parts();
     let body = Body::from_stream(body.into_data_stream());
-
     Ok(axum::response::Response::from_parts(parts, body))
 }
