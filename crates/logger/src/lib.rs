@@ -63,6 +63,11 @@ const DEFAULT_MAX_FILES: usize = 10;
 #[cfg(not(target_arch = "wasm32"))]
 const LOG_FILE_SUFFIX: &str = "log";
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "profiling", not(test)))]
+#[global_allocator]
+static GLOBAL: tracing_tracy::client::ProfiledAllocator<std::alloc::System> =
+    tracing_tracy::client::ProfiledAllocator::new(std::alloc::System, 100);
+
 static INITIALIZED: OnceLock<()> = OnceLock::new();
 
 #[allow(clippy::struct_excessive_bools)]
@@ -287,9 +292,12 @@ impl<F: Sealed> LoggerBuilder<WithName, F> {
         let mut guards = Vec::new();
 
         // 1. Profiling
-        #[cfg(all(not(target_arch = "wasm32"), feature = "profiling", tokio_unstable))]
-        if self.config.console {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "profiling"))]
+        {
+            #[cfg(tokio_unstable)]
             layers.push(console_subscriber::spawn().boxed());
+
+            layers.push(tracing_tracy::TracyLayer::default().boxed());
         }
 
         // 2. OpenTelemetry

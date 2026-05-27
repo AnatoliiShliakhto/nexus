@@ -62,13 +62,13 @@ pub(crate) fn derive_handler(func: &ItemFn) -> TokenStream {
                         "service" = env!("CARGO_PKG_NAME"),
                         "http.method" = %request.method(),
                         "http.uri" = %request.uri(),
-                        "trace_id" = ::nx_http::tracing::field::Empty,
+                        "traceid" = ::nx_http::tracing::field::Empty,
                     );
                     async move {
                         match super::#name(request).await {
                             Ok(response) => response.into_response(),
                             Err(e) => {
-                                ::nx_http::tracing::Span::current().record("trace_id", trace_ctx.trace_id());
+                                ::nx_http::tracing::Span::current().record("traceid", trace_ctx.trace_id());
                                 #error_trace
                                 Response::builder()
                                 .status(e.status().as_u16())
@@ -90,13 +90,13 @@ pub(crate) fn derive_handler(func: &ItemFn) -> TokenStream {
                                 .first()
                                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
                                 .unwrap_or_else(|| trace_ctx.trace_id().to_owned());
-                                ::nx_http::tracing::Span::current().record("trace_id", trace_id);
+                                ::nx_http::tracing::Span::current().record("traceid", trace_id);
                             } else {
                                 let _ = headers.set(
                                     &"x-trace-id".to_string(),
                                     &[trace_ctx.trace_id().as_bytes().to_vec()]
                                 );
-                                ::nx_http::tracing::Span::current().record("trace_id", trace_ctx.trace_id());
+                                ::nx_http::tracing::Span::current().record("traceid", trace_ctx.trace_id());
                             }
                             r
                         })

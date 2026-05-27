@@ -161,24 +161,30 @@ pub(crate) async fn handle_tower_error(err: BoxError) -> impl IntoResponse {
     } else if err.is::<tower::load_shed::error::Overloaded>() {
         GatewayError::service_overloaded()
     } else {
-        GatewayError::internal().with_details(err.to_string())
+        GatewayError::internal()
+    }
+    .with_details(err.to_string())
+}
+
+impl From<JsonRejection> for GatewayError {
+    fn from(rejection: JsonRejection) -> Self {
+        GatewayError::invalid_payload().with_message(rejection.body_text())
     }
 }
 
-impl GatewayError {
-    pub(crate) fn emit(&self) {
+// --- Helpers ---
+
+pub trait ErrorEmit {
+    fn emit(&self);
+}
+
+impl<T: ErrorMetadata> ErrorEmit for T {
+    fn emit(&self) {
         tracing::error!(
             status = self.status().as_u16(),
             code = %self.code(),
             details = %self.details().as_deref().unwrap_or(""),
             "{}", self.message(),
         );
-    }
-}
-
-impl From<JsonRejection> for GatewayError {
-    fn from(rejection: JsonRejection) -> Self {
-        let error = GatewayError::invalid_payload().with_message(rejection.body_text());
-        error
     }
 }

@@ -11,7 +11,6 @@ Designed for high-throughput, low-latency distributed systems, `nx-logger` provi
 * **Typestate Builder:** Compile-time validation prevents invalid logger configurations.
 * **Advanced Field Redaction:** Automatically suppresses sensitive data (passwords, tokens, secrets) with zero runtime overhead.
 * **Wasm-Native:** Compiles cleanly to `wasm32-unknown-unknown` and `wasm32-wasi`.
-* **Telemetry & Profiling:** Out-of-the-box support for `opentelemetry-otlp` and `tokio-console`.
 * **Telemetry, Metrics & Profiling:** Out-of-the-box support for the complete OpenTelemetry trinity (Traces, Logs, and Metrics via `opentelemetry-otlp`) and task profiling via `tokio-console`.
 
 ## Performance & Zero-Cost Architecture
@@ -47,11 +46,9 @@ nx-logger = "0.1.0" # Replace it with actual version
 
 ### Feature Flags
 
-### Feature Flags
-
 * `opentelemetry`: Enables exporting tracing spans and structural logs to OpenTelemetry collectors (via gRPC/Tonic).
 * `metrics`: Activates the OpenTelemetry `MeterProvider` and a periodic metric reader, automatically enabling the base `opentelemetry` feature.
-* `profiling`: Activates a console subscriber for tracing/profiling Tokio tasks via `tokio-console`.
+* `profiling`: Activates a console subscriber for `tokio-console`, integration with `tracy-profiler`, and a global allocator for memory tracking.
 
 ## Quick Start
 
@@ -77,6 +74,41 @@ fn main() {
     );
 }
 ```
+
+### Profiling with Tracy & Tokio Console
+
+The `profiling` feature transforms `nx-logger` into a high-fidelity performance analysis suite. It is designed to be a modern, real-time replacement for the traditional `perf` + `flamegraph` + `dhat` workflow.
+
+#### 1. Setup Tools
+
+*   **Tracy Profiler**: Download the latest release from the [Tracy GitHub](https://github.com/wolfpld/tracy). On Windows, just run the `tracy-profiler.exe`. On Linux/macOS, you may need to build it from source or use a package manager.
+*   **Tokio Console**: Install the CLI tool via cargo:
+    ```bash
+    cargo install tokio-console
+    ```
+
+#### 2. Run with Profiling
+
+To enable full instrumentation (Async tasks, Spans, and Memory allocations), run your service with the following flags:
+
+```bash
+# Set unstable flags for tokio-console and enable the profiling feature
+RUSTFLAGS="--cfg tokio_unstable" cargo run -p nx-gateway --features nx-logger/profiling
+```
+
+#### 3. Analyze
+
+*   **Memory & Spans (Tracy)**: Open `tracy-profiler` and click **Connect**. You will see:
+    *   **Memory**: Real-time heap allocation tracking (via global allocator).
+    *   **Timeline**: Fine-grained execution timing for instrumented spans.
+    *   **Call Stacks**: View exactly where allocations and bottlenecks occur.
+*   **Async Tasks (Tokio Console)**: Open a separate terminal and run:
+    ```bash
+    tokio-console
+    ```
+    This provides a "top-like" interface for your async tasks, showing polls, wait times, and potential task starvation.
+
+---
 
 ## Configuration
 

@@ -1,6 +1,7 @@
 use crate::error::LoggerError;
 use crate::utils::{FieldValue, FieldVisitor, IgnoreFields, SpanAttributes};
 use opentelemetry::logs::{AnyValue, LogRecord, Logger, LoggerProvider, Severity};
+use opentelemetry::trace::TraceContextExt;
 use opentelemetry::{Key, KeyValue, global};
 #[cfg(feature = "metrics")]
 use opentelemetry_otlp::MetricExporter;
@@ -8,10 +9,11 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::{SdkLogger, SdkLoggerProvider};
 #[cfg(feature = "metrics")]
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use smallvec::SmallVec;
 use std::time::Duration;
 use tracing::{Event, Subscriber};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
@@ -74,8 +76,8 @@ where
                     break;
                 }
 
-                attrs.push((Key::new("span.name"), AnyValue::from(span.name())));
-                attr_count += 1;
+                // attrs.push((Key::new("span.name"), AnyValue::from(span.name())));
+                // attr_count += 1;
 
                 if let Some(a) = span.extensions().get::<SpanAttributes>() {
                     for (k, v) in &a.attrs {
@@ -107,6 +109,18 @@ where
         };
         rec.set_body(body);
 
+        let context = tracing::Span::current().context();
+        let span = context.span();
+        let span_context = span.span_context();
+
+        if span_context.is_valid() {
+            rec.set_trace_context(
+                span_context.trace_id(),
+                span_context.span_id(),
+                Some(span_context.trace_flags()),
+            );
+        }
+
         self.logger.emit(rec);
     }
 }
@@ -128,7 +142,11 @@ pub(crate) fn init_otlp_pipeline(
     ignored: IgnoreFields,
 ) -> Result<(OpenTelemetryGuard, FilteredOtlpLayer), LoggerError> {
     let res = Resource::builder_empty()
-        .with_attributes([KeyValue::new("service.name", service_name.to_owned())])
+        .with_attributes([
+            KeyValue::new("service.name", service_name.to_owned()),
+            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+            KeyValue::new("environment", "production"),
+        ])
         .build();
 
     // 1. Init tracer provider
@@ -140,6 +158,8 @@ pub(crate) fn init_otlp_pipeline(
                 .map_err(|e| LoggerError::invalid_configuration().with_details(e.to_string()))?,
         )
         .with_resource(res.clone())
+        // .with_sampler(Sampler::ParentBased(Box::new(Sampler::AlwaysOn)))
+        .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(0.05))))
         .build();
 
     global::set_tracer_provider(tp.clone());

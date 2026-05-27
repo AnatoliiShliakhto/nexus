@@ -1,3 +1,4 @@
+use crate::error::ErrorEmit;
 use crate::infra::database::{Database, DatabaseError};
 use crossbeam_epoch::{self as epoch, Atomic, Guard, Owned};
 use futures_util::StreamExt;

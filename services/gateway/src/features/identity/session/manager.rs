@@ -1,4 +1,5 @@
 use crate::core::config::{DpopStorageProvider, GatewayConfig};
+use crate::error::ErrorEmit;
 use crate::features::identity::dpop::engine::DpopValidator;
 use crate::features::identity::error::IdentityError;
 use crate::features::identity::session::models::{

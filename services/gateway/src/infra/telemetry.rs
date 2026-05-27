@@ -1,11 +1,10 @@
 use axum::body::Body;
-use axum::http::{HeaderValue, Request};
+use axum::http::{HeaderValue, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use opentelemetry::metrics::{Counter, Histogram};
-use opentelemetry::trace::TraceContextExt;
+use opentelemetry::trace::{TraceContextExt, TraceId};
 use opentelemetry::{KeyValue, global};
-use smol_str::ToSmolStr;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tower_http::classify::{ServerErrorsAsFailures, SharedClassifier};
@@ -32,7 +31,7 @@ pub(crate) fn tracing_layer() -> TraceLayer<
                 "http.method" = %request.method(),
                 "http.route" = %request.uri().path(),
                 "http.status_code" = tracing::field::Empty,
-                "trace_id" = tracing::field::Empty
+                "traceid" = tracing::field::Empty
             );
 
             let _ = span.set_parent(parent_context);
@@ -40,11 +39,13 @@ pub(crate) fn tracing_layer() -> TraceLayer<
             span
         })
         .on_response(|response: &Response<Body>, latency: Duration, span: &tracing::Span| {
-            let status = response.status().as_u16();
-            let trace_id = span.context().span().span_context().trace_id().to_string();
+            let status = response.status();
+            let trace_id = span.context().span().span_context().trace_id();
 
-            span.record("http.status_code", response.status().as_u16());
-            span.record("trace_id", trace_id);
+            span.record("http.status_code", status.as_u16());
+            if trace_id != TraceId::INVALID {
+                span.record("traceid", trace_id.to_string());
+            }
 
             METRICS.record_request(status, latency)
         })
@@ -53,14 +54,20 @@ pub(crate) fn tracing_layer() -> TraceLayer<
 pub(crate) async fn set_trace_id_header(request: Request<Body>, next: Next) -> impl IntoResponse {
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
+
     if headers.contains_key("x-trace-id") {
         return response;
     }
 
-    let trace_id = tracing::Span::current().context().span().span_context().trace_id().to_string();
+    let trace_id = tracing::Span::current().context().span().span_context().trace_id();
 
-    if let Ok(header_value) = HeaderValue::from_str(&trace_id) {
-        headers.insert("x-trace-id", header_value);
+    if trace_id != TraceId::INVALID {
+        let mut buf = [0u8; 32];
+        if hex::encode_to_slice(trace_id.to_bytes(), &mut buf).is_ok() {
+            if let Ok(header_value) = HeaderValue::from_bytes(&buf) {
+                headers.insert("x-trace-id", header_value);
+            }
+        }
     }
 
     response
@@ -126,7 +133,7 @@ impl Metrics {
         }
     }
 
-    pub(crate) fn record_request(&self, status: u16, latency: Duration) {
+    pub(crate) fn record_request(&self, status: StatusCode, latency: Duration) {
         let labels = [KeyValue::new("status", status_to_str(status))];
         self.requests_total.add(1, &labels);
         self.request_duration.record(latency.as_secs_f64(), &labels);
@@ -141,7 +148,7 @@ impl Metrics {
         self.db_query_duration.record(duration_secs, &[]);
     }
 
-    pub(crate) fn record_proxy_request(&self, status: u16, duration: f64) {
+    pub(crate) fn record_proxy_request(&self, status: StatusCode, duration: f64) {
         let labels = [KeyValue::new("status", status_to_str(status))];
         self.proxy_requests_total.add(1, &labels);
         self.proxy_request_duration.record(duration, &labels);
@@ -155,50 +162,27 @@ impl Metrics {
 
 // --- Helpers ---
 
-fn status_to_str(status: u16) -> &'static str {
-    match status {
-        100 => "100",
-        101 => "101",
-        102 => "102",
+/// Maps StatusCode to a `&'static str` for `OpenTelemetry` labels.
+/// Necessary because OTEL labels require static lifetimes to avoid allocations.
+fn status_to_str(status: StatusCode) -> &'static str {
+    match status.as_u16() {
         200 => "200",
         201 => "201",
-        202 => "202",
         204 => "204",
-        206 => "206",
-        207 => "207",
-        300 => "300",
         301 => "301",
         302 => "302",
-        303 => "303",
         304 => "304",
-        307 => "307",
-        308 => "308",
         400 => "400",
         401 => "401",
         403 => "403",
         404 => "404",
-        405 => "405",
-        406 => "406",
-        408 => "408",
         409 => "409",
-        410 => "410",
-        411 => "411",
-        412 => "412",
-        413 => "413",
-        414 => "414",
-        415 => "415",
-        416 => "416",
-        417 => "417",
-        418 => "418",
         422 => "422",
         429 => "429",
         500 => "500",
-        501 => "501",
         502 => "502",
         503 => "503",
         504 => "504",
-        505 => "505",
-        507 => "507",
         _ => "other",
     }
 }

@@ -124,7 +124,7 @@ async fn proxy_request(
         GatewayError::dispatch_failed().with_details(e.to_string())
     })?;
 
-    METRICS.record_proxy_request(response.status().as_u16(), start.elapsed().as_secs_f64());
+    METRICS.record_proxy_request(response.status(), start.elapsed().as_secs_f64());
 
     let (parts, body) = response.into_parts();
     let body = Body::from_stream(body.into_data_stream());

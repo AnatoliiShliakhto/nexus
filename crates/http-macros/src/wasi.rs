@@ -69,11 +69,11 @@ pub(crate) fn derive_service(func: &ItemFn) -> TokenStream {
                     "service" = env!("CARGO_PKG_NAME"),
                     "http.method" = %request.method(),
                     "http.route" = %request.uri().path(),
-                    "trace_id" = ::nx_http::tracing::field::Empty,
+                    "traceid" = ::nx_http::tracing::field::Empty,
                 );
                 let _guard = span.enter();
                 let mut response = #name(request).unwrap_or_else(|e| {
-                    ::nx_http::tracing::Span::current().record("trace_id", trace_ctx.trace_id());
+                    ::nx_http::tracing::Span::current().record("traceid", trace_ctx.trace_id());
                     #error_trace
                     ::nx_http::http::Response::builder()
                     .status(e.status().as_u16())
@@ -83,11 +83,11 @@ pub(crate) fn derive_service(func: &ItemFn) -> TokenStream {
                 });
                 let headers = response.headers_mut();
                 if let Some(trace_id) = headers.get("x-trace-id") {
-                    ::nx_http::tracing::Span::current().record("trace_id", trace_id.to_str().unwrap_or(trace_ctx.trace_id()));
+                    ::nx_http::tracing::Span::current().record("traceid", trace_id.to_str().unwrap_or(trace_ctx.trace_id()));
                 } else {
                     let value = trace_ctx.trace_id().parse().unwrap_or_else(|_| HeaderValue::from_static(""));
                     headers.insert("x-trace-id", value);
-                    ::nx_http::tracing::Span::current().record("trace_id", trace_ctx.trace_id());
+                    ::nx_http::tracing::Span::current().record("traceid", trace_ctx.trace_id());
                 }
                 _wasi::send_response(response, out_param).unwrap_or_else(|e| {
                     ::nx_http::tracing::error!("Critical failure sending response: {e}");

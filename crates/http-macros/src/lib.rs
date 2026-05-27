@@ -22,7 +22,7 @@ use syn::{ItemFn, parse_macro_input};
 /// 2. **Observability (Telemetry)**:
 ///    - Initializes the tracing subscriber once per Wasm instance.
 ///    - Injects a root `http_request` tracing span containing `http.method`, `http.route`,
-///      `trace_id`, and `http.status_code` (recorded at runtime).
+///      `traceid`, and `http.status_code` (recorded at runtime).
 ///    - Automatically extracts `traceparent` for distributed tracing and injects
 ///      `x-trace-id` into outgoing responses.
 /// 3. **Standardized Error Handling**:

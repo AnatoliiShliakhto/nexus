@@ -1,4 +1,5 @@
 use crate::core::config::GatewayConfig;
+use crate::error::ErrorEmit;
 use crate::infra::telemetry::METRICS;
 use chrono::Duration;
 use futures::{Stream, StreamExt};
@@ -90,17 +91,6 @@ pub enum DatabaseError {
         code = "DB_SYS_SURREAL_ENGINE_ERROR",
     )]
     Internal,
-}
-
-impl DatabaseError {
-    pub(crate) fn emit(&self) {
-        tracing::error!(
-            status = self.status().as_u16(),
-            code = %self.code(),
-            details = %self.details().as_deref().unwrap_or(""),
-            "{}", self.message(),
-        );
-    }
 }
 
 #[derive(Debug, Serialize)]

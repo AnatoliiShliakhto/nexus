@@ -14,22 +14,13 @@ publish = true
 
 [features]
 default = []
-profiling = ["console-subscriber"]
+profiling = ["dep:console-subscriber", "dep:tracing-tracy"]
 opentelemetry = [
-    "dep:opentelemetry",
     "dep:tracing-opentelemetry",
+    "dep:opentelemetry",
     "dep:opentelemetry-appender-tracing",
     "dep:opentelemetry-otlp",
-    "dep:opentelemetry_sdk",
-
-    "opentelemetry-otlp/trace",
-    "opentelemetry-otlp/logs",
-    "opentelemetry-otlp/grpc-tonic",
-    "opentelemetry-otlp/zstd-tonic",
-
-    "opentelemetry_sdk/trace",
-    "opentelemetry_sdk/logs",
-    "opentelemetry_sdk/rt-tokio",
+    "dep:opentelemetry_sdk"
 ]
 metrics = [
     "opentelemetry",
@@ -50,10 +41,19 @@ smallvec.workspace = true
 console-subscriber = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-appender-tracing = { workspace = true, optional = true }
-opentelemetry-otlp = { workspace = true, optional = true }
-opentelemetry_sdk = { workspace = true, optional = true }
+opentelemetry-otlp = {
+    workspace = true,
+    optional = true,
+    features = ["trace", "logs", "grpc-tonic", "zstd-tonic"]
+}
+opentelemetry_sdk = { workspace = true, optional = true, features = ["trace", "logs", "rt-tokio"] }
 tracing-appender.workspace = true
 tracing-opentelemetry = { workspace = true, optional = true }
+tracing-tracy = {
+    workspace = true,
+    optional = true,
+    features = ["flush-on-exit", "system-tracing", "sampling", "code-transfer"]
+}
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["async_tokio", "html_reports"] }
