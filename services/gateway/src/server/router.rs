@@ -45,7 +45,7 @@ pub(crate) async fn app(config: GatewayConfig) -> Result<Router, GatewayError> {
 
     let state = GatewayState::init(config).await?;
 
-    let proxy_layer = ProxyFilterLayer::new(state.clone());
+    let proxy_layer = ProxyFilterLayer::new(state);
 
     let router = Router::new()
         .layer(proxy_layer)

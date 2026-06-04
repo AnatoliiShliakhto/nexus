@@ -13,6 +13,7 @@ use futures_util::future::BoxFuture;
 use http::{HeaderName, HeaderValue};
 use http_body_util::BodyExt;
 use smol_str::SmolStr;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
@@ -23,14 +24,14 @@ const X_SESSION_ID: HeaderName = HeaderName::from_static("x-session-id");
 
 #[derive(Debug, Clone)]
 pub(crate) struct ProxyFilterLayer {
-    pub state: GatewayState,
+    pub state: &'static GatewayState,
 }
 
 impl ProxyFilterLayer {
     /// Creates a new `ProxyFilterLayer` with the shared Gateway state.
     /// Since `GatewayState` is designed to be inexpensive to clone (Arcs inside),
     /// we pass it by value.
-    pub(crate) const fn new(state: GatewayState) -> Self {
+    pub(crate) const fn new(state: &'static GatewayState) -> Self {
         Self { state }
     }
 }
@@ -38,14 +39,14 @@ impl<S> Layer<S> for ProxyFilterLayer {
     type Service = ProxyFilterService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        ProxyFilterService { inner, state: self.state.clone() }
+        ProxyFilterService { inner, state: self.state }
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct ProxyFilterService<S> {
     inner: S,
-    state: GatewayState,
+    state: &'static GatewayState,
 }
 
 impl<S> Service<Request<Body>> for ProxyFilterService<S>
@@ -66,7 +67,7 @@ where
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
         let mut inner = self.inner.clone();
-        let state = self.state.clone();
+        let state = self.state;
 
         Box::pin(async move {
             let path = req.uri().path();
@@ -90,9 +91,9 @@ where
 }
 
 async fn proxy_request(
-    state: GatewayState,
+    state: &'static GatewayState,
     component: SmolStr,
-    target: Url,
+    target: Arc<Url>,
     protected: bool,
     req: Request<Body>,
 ) -> Result<Response<Body>, GatewayError> {
@@ -101,6 +102,7 @@ async fn proxy_request(
     let proxy_req = if protected {
         let ident = IdentityContext::from_request(&req);
         let session = state.sessions.validate_session(&ident).await?;
+
         if !session.check_access(&component, &req.method()) {
             return Err(GatewayError::access_denied()
                 .with_details(format!("Lack of permissions for component: {component}")));
@@ -109,7 +111,8 @@ async fn proxy_request(
         req.proxy_to(&target)
             .header(
                 X_SESSION_ID,
-                HeaderValue::try_from(session.id.as_str()).unwrap_or(HeaderValue::from_static("")),
+                HeaderValue::try_from(session.id.as_str())
+                    .unwrap_or_else(|_| HeaderValue::from_static("")),
             )
             .header(X_SURREAL_TOKEN, session.database_token.clone())
             .build()?
@@ -128,5 +131,6 @@ async fn proxy_request(
 
     let (parts, body) = response.into_parts();
     let body = Body::from_stream(body.into_data_stream());
+
     Ok(axum::response::Response::from_parts(parts, body))
 }

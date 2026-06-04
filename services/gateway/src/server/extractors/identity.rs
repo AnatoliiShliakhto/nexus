@@ -1,7 +1,7 @@
 use crate::infra::ip_value::IpValue;
 use axum::extract::{ConnectInfo, FromRequestParts, Request};
 use http::request::Parts;
-use http::{HeaderMap, HeaderName, Method, Uri, header};
+use http::{HeaderMap, HeaderName, HeaderValue, Method, Uri, header};
 use smol_str::SmolStr;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -18,15 +18,16 @@ pub(crate) const X_DPOP_NONCE: HeaderName = HeaderName::from_static("x-dpop-nonc
 const AUTH_SCHEME_DPOP: &str = "dpop";
 const DEFAULT_HTTP_SCHEME: &str = "http";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct IdentityContext {
     pub session_id: Option<SmolStr>,
-    pub dpop_proof: Option<Box<str>>,
-    pub dpop_nonce: Option<SmolStr>,
+    pub dpop_proof: Option<HeaderValue>,
+    #[allow(dead_code)]
+    pub dpop_nonce: Option<HeaderValue>,
     pub htu: SmolStr,
     pub htm: Method,
     pub ip: Option<IpValue>,
-    pub user_agent: Option<SmolStr>,
+    pub user_agent: Option<HeaderValue>,
 }
 
 impl IdentityContext {
@@ -45,9 +46,10 @@ impl IdentityContext {
         });
 
         let session_id = extract_dpop_session_id(headers);
-        let dpop_proof = header_boxed_str(headers, &DPOP);
-        let dpop_nonce = header_smol_str(headers, &X_DPOP_NONCE);
-        let user_agent = header_smol_str(headers, &header::USER_AGENT);
+        let dpop_proof = headers.get(&DPOP).cloned();
+        let dpop_nonce = headers.get(&X_DPOP_NONCE).cloned();
+        let user_agent = headers.get(&header::USER_AGENT).cloned();
+
         let htu = build_dpop_htu(uri, headers);
         let htm = method.clone();
 
@@ -79,7 +81,6 @@ fn build_dpop_htu(uri: &Uri, headers: &HeaderMap) -> SmolStr {
         .unwrap_or_default();
 
     let path = uri.path();
-
     let authority = normalize_authority(scheme, authority);
 
     let mut htu = String::with_capacity(scheme.len() + 3 + authority.len() + path.len());
@@ -150,35 +151,6 @@ fn normalize_authority<'a>(scheme: &str, authority: &'a str) -> &'a str {
     authority
 }
 
-// --- Headers ---
-
-#[inline]
-fn header_smol_str(headers: &HeaderMap, name: &HeaderName) -> Option<SmolStr> {
-    headers.get(name).and_then(|value| value.to_str().ok()).map(SmolStr::from)
-}
-
-#[inline]
-fn header_boxed_str(headers: &HeaderMap, name: &HeaderName) -> Option<Box<str>> {
-    headers.get(name).and_then(|value| value.to_str().ok()).map(Box::<str>::from)
-}
-
-#[inline]
-fn extract_dpop_session_id(headers: &HeaderMap) -> Option<SmolStr> {
-    let value = headers.get(&header::AUTHORIZATION)?.to_str().ok()?;
-    let (scheme, credentials) = value.split_once(' ')?;
-
-    if !scheme.eq_ignore_ascii_case(AUTH_SCHEME_DPOP) {
-        return None;
-    }
-
-    let credentials = trim_ascii_whitespace(credentials);
-    if credentials.is_empty() {
-        return None;
-    }
-
-    Some(SmolStr::from(credentials))
-}
-
 // --- Client IP ---
 
 #[inline]
@@ -211,7 +183,24 @@ fn first_csv_header_value<'a>(headers: &'a HeaderMap, name: &HeaderName) -> Opti
     headers.get(name)?.to_str().ok()?.split(',').next()
 }
 
-#[inline]
+#[inline(always)]
 fn trim_ascii_whitespace(value: &str) -> &str {
-    value.trim_matches(|ch: char| ch.is_ascii_whitespace())
+    value.trim_ascii()
+}
+
+#[inline]
+fn extract_dpop_session_id(headers: &HeaderMap) -> Option<SmolStr> {
+    let value = headers.get(&header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, credentials) = value.split_once(' ')?;
+
+    if !scheme.eq_ignore_ascii_case(AUTH_SCHEME_DPOP) {
+        return None;
+    }
+
+    let credentials = trim_ascii_whitespace(credentials);
+    if credentials.is_empty() {
+        return None;
+    }
+
+    Some(SmolStr::from(credentials))
 }

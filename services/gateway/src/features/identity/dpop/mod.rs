@@ -1,2 +1,2 @@
-pub(super) mod claims;
+pub(super) mod models;
 pub(super) mod engine;

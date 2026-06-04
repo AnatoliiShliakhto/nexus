@@ -1,3 +1,4 @@
+use crate::features::identity::dpop::models::Jkt;
 use crate::infra::ip_value::IpValue;
 use crate::infra::serde_utils::header_serde;
 use bitflags::bitflags;
@@ -66,7 +67,7 @@ pub(crate) struct Session {
     pub database_token: HeaderValue,
     pub permissions: FxHashMap<String, Actions>,
     pub ip: Option<IpValue>,
-    pub jkt: SmolStr,
+    pub jkt: Jkt,
 }
 
 impl Actions {

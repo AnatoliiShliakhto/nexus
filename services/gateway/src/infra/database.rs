@@ -102,9 +102,6 @@ struct DatabaseClaims<'a> {
     pub exp: i64,
 }
 
-#[derive(SurrealValue)]
-pub(crate) struct EmptyVars;
-
 // --- Database Wrapper ---
 
 #[derive(Debug, Clone)]

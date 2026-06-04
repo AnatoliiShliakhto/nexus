@@ -2,7 +2,6 @@ use crate::error::ErrorEmit;
 use crate::infra::database::{Database, DatabaseError};
 use crossbeam_epoch::{self as epoch, Atomic, Guard, Owned};
 use futures_util::StreamExt;
-use radix_trie::{Trie, TrieCommon};
 use smol_str::SmolStr;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -16,7 +15,7 @@ use url::Url;
 #[derive(Debug, Clone)]
 pub(crate) struct ServiceRoute {
     pub component: SmolStr,
-    pub target: Url,
+    pub target: Arc<Url>,
     pub route: SmolStr,
     pub protected: bool,
 }
@@ -29,37 +28,40 @@ struct ActiveComponent {
     protected: bool,
 }
 
+#[derive(Debug)]
+pub(crate) struct RouteTable {
+    routes: Vec<ServiceRoute>,
+}
+
 // --- Route Registry ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct RouteRegistry {
-    inner: Arc<Atomic<Trie<String, ServiceRoute>>>,
+    inner: Atomic<RouteTable>,
 }
 
 impl RouteRegistry {
     pub(crate) fn new() -> Self {
-        Self { inner: Arc::new(Atomic::null()) }
+        Self { inner: Atomic::null() }
     }
 
     /// Replaces the current routing table with a new one.
-    pub(crate) fn reload(&self, routes: Vec<ServiceRoute>) {
-        let mut trie = Trie::new();
-
-        for r in routes {
-            let key = if r.route == "/" {
-                "/".to_owned()
-            } else {
-                r.route.trim_end_matches('/').to_owned()
-            };
-            trie.insert(key, r);
+    pub(crate) fn reload(&self, mut routes: Vec<ServiceRoute>) {
+        for r in &mut routes {
+            if r.route != "/" {
+                r.route = SmolStr::new(r.route.trim_end_matches('/'));
+            }
         }
+        routes.sort_by(|a, b| b.route.len().cmp(&a.route.len()));
 
+        let new_table = Owned::new(RouteTable { routes });
         let guard = &epoch::pin();
-        let old_trie = self.inner.swap(Owned::new(trie), Ordering::AcqRel, guard);
 
-        if !old_trie.is_null() {
+        let old_table = self.inner.swap(new_table, Ordering::AcqRel, guard);
+
+        if !old_table.is_null() {
             unsafe {
-                guard.defer_destroy(old_trie);
+                guard.defer_destroy(old_table);
             }
         }
     }
@@ -72,36 +74,35 @@ impl RouteRegistry {
         guard: &'g Guard,
     ) -> Option<&'g ServiceRoute> {
         let snapshot = self.inner.load(Ordering::Acquire, guard);
-        let trie = unsafe { snapshot.as_ref() }?;
+        let table = unsafe { snapshot.as_ref() }?;
 
-        trie.get_ancestor(path).and_then(|node| {
-            let prefix = node.key()?;
+        table.routes.iter().find(|r| {
+            let prefix = r.route.as_str();
             let prefix_len = prefix.len();
 
-            if path.len() == prefix_len || path.as_bytes().get(prefix_len) == Some(&b'/') {
-                return Some(node.value());
-            }
-
-            None
-        })?
+            path.starts_with(prefix)
+                && (prefix == "/"
+                    || path.len() == prefix_len
+                    || path.as_bytes().get(prefix_len) == Some(&b'/'))
+        })
     }
 
-    pub(crate) fn watch(&self, database: Database) {
-        let observer = RouteObserver::new(database, self.clone());
+    pub(crate) fn watch(&'static self, database: &'static Database) {
+        let observer = RouteObserver::new(database, self);
         observer.spawn();
     }
 }
 
 // --- Route Observer ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct RouteObserver {
-    database: Database,
-    registry: RouteRegistry,
+    database: &'static Database,
+    registry: &'static RouteRegistry,
 }
 
 impl RouteObserver {
-    fn new(database: Database, registry: RouteRegistry) -> Self {
+    fn new(database: &'static Database, registry: &'static RouteRegistry) -> Self {
         Self { database, registry }
     }
 
@@ -165,7 +166,7 @@ impl RouteObserver {
             .filter_map(|c| match c.target.parse::<Url>() {
                 Ok(parsed_target) => Some(ServiceRoute {
                     component: SmolStr::new(c.component),
-                    target: parsed_target,
+                    target: Arc::new(parsed_target),
                     route: SmolStr::new(c.route),
                     protected: c.protected,
                 }),
@@ -191,7 +192,7 @@ mod tests {
     fn mock_route(component: &str, route: &str) -> ServiceRoute {
         ServiceRoute {
             component: SmolStr::new(component),
-            target: Url::parse("http://localhost:8080").unwrap(),
+            target: Arc::new(Url::parse("http://localhost:8080").unwrap()),
             route: SmolStr::new(route),
             protected: false,
         }

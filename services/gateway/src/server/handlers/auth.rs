@@ -47,7 +47,7 @@ pub(crate) struct AuthorizationResponse {
 }
 
 pub(crate) async fn authorization_handler(
-    State(state): State<GatewayState>,
+    State(state): State<&'static GatewayState>,
     ident: IdentityContext,
     WithRejection(Json(payload), _): WithRejection<Json<AuthorizationRequest>, GatewayError>,
 ) -> Result<impl IntoResponse, GatewayError> {
@@ -56,7 +56,7 @@ pub(crate) async fn authorization_handler(
     let AuthorizationRequest { username, password } = payload;
 
     let (refresh_token, session) =
-        state.sessions.authenticate_with_credentials(&username, &password, &ident).await?;
+        state.sessions.authenticate_with_credentials(username, password, &ident).await?;
 
     let response = AuthorizationResponse {
         status: session.status,
@@ -70,7 +70,7 @@ pub(crate) async fn authorization_handler(
 }
 
 pub(crate) async fn token_refresh_handler(
-    State(state): State<GatewayState>,
+    State(state): State<&'static GatewayState>,
     ident: IdentityContext,
     jar: CookieJar,
     payload: Option<Json<RefreshRequest>>,
@@ -82,7 +82,7 @@ pub(crate) async fn token_refresh_handler(
     let access_token_expires_at = chrono::Utc::now().timestamp().cast_unsigned()
         + state.config.get().security.identity.session.access_token_ttl_sec;
 
-    let (refresh_token, session) = state.sessions.refresh_session(&rt, &ident).await?;
+    let (refresh_token, session) = state.sessions.refresh_session(rt, &ident).await?;
 
     let response = AuthorizationResponse {
         status: session.status,
@@ -96,7 +96,7 @@ pub(crate) async fn token_refresh_handler(
 }
 
 pub(crate) async fn token_revoke_handler(
-    State(state): State<GatewayState>,
+    State(state): State<&'static GatewayState>,
     ident: IdentityContext,
 ) -> Result<impl IntoResponse, GatewayError> {
     let _ = state.sessions.validate_session(&ident).await?;

@@ -1,20 +1,20 @@
-use super::claims::{DpopClaims, Jkt};
+use super::models::{DpopClaims, Jkt};
 use crate::features::identity::error::IdentityError;
 use axum::http::Method;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use http::HeaderValue;
 use jsonwebtoken::jwk::{AlgorithmParameters, EllipticCurve, Jwk};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
-use moka::future::Cache;
+use moka::sync::Cache;
 use redis::aio::ConnectionManager;
 use sha2::{Digest, Sha256};
-use smol_str::SmolStr;
 use std::time::Duration;
 use tracing::error;
 
 #[derive(Debug, Clone)]
 pub(in crate::features::identity) struct DpopValidator {
     /// Local fallback cache for replay protection if Redis is not provided
-    local_cache: Cache<SmolStr, ()>,
+    local_cache: Cache<String, ()>,
     /// Thread-safe, auto-reconnecting Redis handle.
     redis: Option<ConnectionManager>,
     /// Acceptable time drift (in seconds) for `DPoP` timestamps
@@ -41,10 +41,14 @@ impl DpopValidator {
         &self,
         method: &Method,
         htu: &str,
-        proof: &str,
+        proof: &HeaderValue,
         access_token: Option<&str>,
     ) -> Result<Jkt, IdentityError> {
         let now = chrono::Utc::now().timestamp();
+
+        let proof = proof
+            .to_str()
+            .map_err(|e| IdentityError::proof_invalid().with_details(e.to_string()))?;
 
         let header = decode_header(proof)
             .map_err(|e| IdentityError::proof_invalid().with_details(e.to_string()))?;
@@ -74,9 +78,9 @@ impl DpopValidator {
         self.validate_ath(access_token, claims.ath.as_deref())?;
         self.check_replay(&claims.jti).await?;
 
-        tracing::debug!(jti = %claims.jti, jkt = %jkt, "DPoP proof verified");
+        tracing::debug!(jti = %claims.jti, jkt = %jkt.as_str(), "DPoP proof verified");
 
-        Ok(Jkt::new(jkt))
+        Ok(jkt)
     }
 
     fn validate_time_window(&self, iat: i64, now: i64) -> Result<(), IdentityError> {
@@ -109,9 +113,14 @@ impl DpopValidator {
             (Some(at), Some(provided_ath)) => {
                 let mut hasher = Sha256::new();
                 hasher.update(at.as_bytes());
-                let computed_ath = URL_SAFE_NO_PAD.encode(hasher.finalize());
+                let computed_hash = hasher.finalize();
 
-                if computed_ath != provided_ath {
+                let mut decoded_ath = [0u8; 32];
+                if URL_SAFE_NO_PAD.decode_slice(provided_ath, &mut decoded_ath).is_err() {
+                    return Err(IdentityError::invalid_token_hash());
+                }
+
+                if computed_hash.as_slice() != decoded_ath {
                     return Err(IdentityError::invalid_token_hash());
                 }
             },
@@ -122,8 +131,6 @@ impl DpopValidator {
     }
 
     async fn check_replay(&self, jti: &str) -> Result<(), IdentityError> {
-        let mut fallback = true;
-
         if let Some(ref mgr) = self.redis {
             let mut conn = mgr.clone();
             let mut key = String::with_capacity(9 + jti.len());
@@ -140,34 +147,21 @@ impl DpopValidator {
                 .await;
 
             match res {
-                Ok(Some(_)) => {
-                    fallback = false;
-                },
-                Ok(None) => {
-                    return Err(IdentityError::replay_detected());
-                },
+                Ok(Some(_)) => return Ok(()),
+                Ok(None) => return Err(IdentityError::replay_detected()),
                 Err(e) => {
                     error!(details = %e, "DPoP: Redis failed, falling back to local cache");
-                    fallback = true;
                 },
             }
         }
 
-        if fallback {
-            let is_new = {
-                let mut created = false;
-                self.local_cache
-                    .get_with(SmolStr::new(jti), async {
-                        created = true;
-                        ()
-                    })
-                    .await;
-                created
-            };
+        let mut is_new = false;
+        self.local_cache.get_with_by_ref(jti, || {
+            is_new = true;
+        });
 
-            if !is_new {
-                return Err(IdentityError::replay_detected());
-            }
+        if !is_new {
+            return Err(IdentityError::replay_detected());
         }
 
         Ok(())
@@ -175,18 +169,16 @@ impl DpopValidator {
 
     /// JWK Thumbprint computation.
     /// Directly streams strictly ordered JSON bytes into the SHA-256 hasher.
-    fn compute_jkt(jwk: &Jwk) -> Result<String, IdentityError> {
+    fn compute_jkt(jwk: &Jwk) -> Result<Jkt, IdentityError> {
         let mut hasher = Sha256::new();
 
         match &jwk.algorithm {
             AlgorithmParameters::OctetKeyPair(okp) if okp.curve == EllipticCurve::Ed25519 => {
-                // {"crv":"Ed25519","kty":"OKP","x":"<x>"}
                 hasher.update(b"{\"crv\":\"Ed25519\",\"kty\":\"OKP\",\"x\":\"");
                 hasher.update(okp.x.as_bytes());
                 hasher.update(b"\"}");
             },
             AlgorithmParameters::EllipticCurve(ec) if ec.curve == EllipticCurve::P256 => {
-                // {"crv":"P-256","kty":"EC","x":"<x>","y":"<y>"}
                 hasher.update(b"{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"");
                 hasher.update(ec.x.as_bytes());
                 hasher.update(b"\",\"y\":\"");
@@ -196,6 +188,13 @@ impl DpopValidator {
             _ => return Err(IdentityError::unsupported_key_type()),
         }
 
-        Ok(URL_SAFE_NO_PAD.encode(hasher.finalize()))
+        let hash_result = hasher.finalize();
+        let mut buf = [0u8; 43];
+
+        URL_SAFE_NO_PAD
+            .encode_slice(hash_result, &mut buf)
+            .map_err(|_| IdentityError::verification_failed())?;
+
+        Ok(Jkt::new(buf))
     }
 }

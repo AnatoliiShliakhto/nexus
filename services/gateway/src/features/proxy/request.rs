@@ -26,19 +26,12 @@ pub(crate) struct ProxyRequest<'a, B> {
     request: Request<B>,
     target_base: &'a Url,
     strip_prefix: Option<&'a str>,
-    extra_headers: Vec<(HeaderName, HeaderValue)>,
     strict_allowlist: bool,
 }
 
 impl<'a, B> ProxyRequest<'a, B> {
     pub(crate) const fn new(request: Request<B>, target: &'a Url) -> Self {
-        Self {
-            request,
-            target_base: target,
-            strip_prefix: None,
-            extra_headers: Vec::new(),
-            strict_allowlist: false,
-        }
+        Self { request, target_base: target, strip_prefix: None, strict_allowlist: false }
     }
 
     pub(crate) fn strip_prefix(mut self, prefix: &'a str) -> Self {
@@ -46,58 +39,66 @@ impl<'a, B> ProxyRequest<'a, B> {
         self
     }
 
+    #[inline]
     pub(crate) fn header(mut self, name: HeaderName, value: HeaderValue) -> Self {
-        self.extra_headers.push((name, value));
+        self.request.headers_mut().insert(name, value);
         self
     }
 
     pub(crate) fn build(self) -> Result<Request<B>, GatewayError> {
-        let Self { request, target_base, strip_prefix, extra_headers, strict_allowlist } = self;
+        let Self { request, target_base, strip_prefix, strict_allowlist } = self;
 
         let (mut parts, body) = request.into_parts();
 
-        let original_uri = &parts.uri;
-        let path = original_uri.path();
+        let path_and_query = if let Some(prefix) = strip_prefix {
+            let path = parts.uri.path();
+            let processed_path = path.strip_prefix(prefix).unwrap_or(path);
 
-        let processed_path = strip_prefix.and_then(|p| path.strip_prefix(p)).unwrap_or(path);
-
-        let pq = match original_uri.query() {
-            Some(q) => format!("{processed_path}?{q}"),
-            None => processed_path.to_owned(),
+            let pq_string = match parts.uri.query() {
+                Some(q) => format!("{processed_path}?{q}"),
+                None => processed_path.to_owned(),
+            };
+            pq_string.try_into().map_err(|_| GatewayError::uri_parse_failed())?
+        } else {
+            parts
+                .uri
+                .path_and_query()
+                .cloned()
+                .unwrap_or_else(|| http::uri::PathAndQuery::from_static("/"))
         };
 
-        let uri_builder =
-            Uri::builder().scheme(target_base.scheme()).authority(target_base.authority());
+        let mut uri_parts = parts.uri.into_parts();
+        uri_parts.scheme =
+            Some(target_base.scheme().parse().map_err(|_| GatewayError::uri_parse_failed())?);
+        uri_parts.authority =
+            Some(target_base.authority().parse().map_err(|_| GatewayError::uri_parse_failed())?);
+        uri_parts.path_and_query = Some(path_and_query);
 
-        parts.uri =
-            uri_builder.path_and_query(pq).build().map_err(|_| GatewayError::uri_parse_failed())?;
-
+        parts.uri = Uri::from_parts(uri_parts).map_err(|_| GatewayError::uri_parse_failed())?;
         parts.version = Version::HTTP_11;
 
-        let mut filtered_headers =
-            HeaderMap::with_capacity(parts.headers.len() + extra_headers.len());
-
-        for (name, value) in parts.headers {
-            if let Some(ref name) = name {
-                if HOP_BY_HOP_HEADERS.contains(name) || name == header::HOST {
-                    continue;
+        if strict_allowlist {
+            let mut filtered_headers = HeaderMap::with_capacity(parts.headers.len());
+            for (name, value) in parts.headers {
+                if let Some(ref name) = name {
+                    if HOP_BY_HOP_HEADERS.contains(name) || name == header::HOST {
+                        continue;
+                    }
+                    if !is_allowed_forward(name) {
+                        continue;
+                    }
                 }
-
-                if strict_allowlist && !is_allowed_forward(name) {
-                    continue;
+                if let Some(name) = name {
+                    filtered_headers.append(name, value);
                 }
             }
-
-            if let Some(name) = name {
-                filtered_headers.append(name, value);
+            parts.headers = filtered_headers;
+        } else {
+            for hop_header in &HOP_BY_HOP_HEADERS {
+                parts.headers.remove(hop_header);
             }
+            parts.headers.remove(header::HOST);
         }
-
-        for (name, value) in extra_headers {
-            filtered_headers.insert(name, value);
-        }
-
-        parts.headers = filtered_headers;
 
         let context = tracing::Span::current().context();
         global::get_text_map_propagator(|propagator| {
